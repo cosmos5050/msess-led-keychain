@@ -44,6 +44,9 @@
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
+uint16_t usCounter = 0;
+uint16_t dutyCycle = 0;
+
 
 /* USER CODE END PV */
 
@@ -91,6 +94,7 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start_IT(&htim3);
 
   /* USER CODE END 2 */
 
@@ -99,7 +103,12 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	dutyCycle += 10;
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+	HAL_Delay(500);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
 
+	if (dutyCycle == 100) dutyCycle = 0;
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -249,6 +258,36 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+// IRQ TIM3 for LED PWM
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    // Check instance member to see if tim3 has an IRQ
+	if (htim->Instance == TIM3)
+    {
+        // Convert duty cycle % in terms of IRQ freq for ticks
+		uint32_t highTicks = (dutyCycle * 50) / 100;
+
+		// Reset tick counter if reached 100%
+        if (usCounter >= 50)
+        {
+            usCounter = 0;
+        }
+
+        // If less than duty cycle set high else low
+        if (usCounter < highTicks)
+        {
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
+        }
+        else
+        {
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
+        }
+
+        // Increment tick
+        usCounter++;
+    }
+}
+
 
 /* USER CODE END 4 */
 
