@@ -21,11 +21,18 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+// Struct for
+typedef struct
+{
+	uint16_t duty;
+	bool enabled;
+} LED_t;
 
 /* USER CODE END PTD */
 
@@ -44,8 +51,12 @@
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
-uint16_t usCounter = 0;
+volatile uint16_t tickCounter = 0;
 uint16_t dutyCycle = 0;
+uint16_t IRQFreq = 50;
+uint8_t numLeds = 12;
+
+volatile LED_t ledArr[12];
 
 
 /* USER CODE END PV */
@@ -55,6 +66,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
+void writeGPIO(uint8_t ledNum, bool enabled);
 
 /* USER CODE END PFP */
 
@@ -94,7 +106,10 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start_IT(&htim3);
+  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK)
+  {
+      Error_Handler();
+  }
 
   /* USER CODE END 2 */
 
@@ -102,13 +117,32 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-	dutyCycle += 10;
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
-	HAL_Delay(500);
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+	  ledArr[0].duty = 50;
+	  ledArr[0].enabled = true;
+	  HAL_Delay(500);
+	  ledArr[0].enabled = false;
+	  HAL_Delay(500);
 
-	if (dutyCycle == 100) dutyCycle = 0;
+	  /* USER CODE END WHILE */
+//	for (uint8_t i = 0; i < 2; i++)
+//	{
+//		for (uint8_t j = 0; j < 3; j++)
+//		{
+//			ledArr[j].duty = dutyCycle;
+//			if ((i+j)%2 == 0)
+//			{
+//				ledArr[j].enabled = true;
+//			}
+//			else
+//			{
+//				ledArr[j].enabled = false;
+//			}
+//		}
+//		HAL_Delay(1000);
+//	}
+//	dutyCycle += 10;
+//	if (dutyCycle == 100)
+//		dutyCycle = 0;
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -173,7 +207,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 59;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 3;
+  htim3.Init.Period = 39;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -258,36 +292,168 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
 // IRQ TIM3 for LED PWM
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     // Check instance member to see if tim3 has an IRQ
 	if (htim->Instance == TIM3)
     {
-        // Convert duty cycle % in terms of IRQ freq for ticks
-		uint32_t highTicks = (dutyCycle * 50) / 100;
+		//Reset tick counter if reached 100%
+		if (tickCounter >= IRQFreq)
+		{
+			tickCounter = 0;
+		}
 
-		// Reset tick counter if reached 100%
-        if (usCounter >= 50)
-        {
-            usCounter = 0;
-        }
+		// Cycle through LEDs
+		for (uint8_t i = 0; i < 2; i++)
+		{
+			// Convert duty cycle % in terms of IRQ freq ticks
+			uint32_t dutyInTicks = (ledArr[i].duty * IRQFreq) / 100;
 
-        // If less than duty cycle set high else low
-        if (usCounter < highTicks)
-        {
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
-        }
-        else
-        {
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
-        }
+			// If less than duty cycle set high else low
+			if ((tickCounter < dutyInTicks) && ledArr[i].enabled)
+			{
+				writeGPIO(i + 1, true);
+			}
+			else
+			{
+				writeGPIO(i + 1, false);
+			}
+		}
 
         // Increment tick
-        usCounter++;
+        tickCounter++;
     }
 }
 
+// Lookup table to write GPIOs for PWM IRQ for cleanliness
+void writeGPIO(uint8_t ledNum, bool enabled)
+{
+	switch (ledNum)
+	{
+		case 1:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
+			}
+			break;
+		case 2:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+			}
+			break;
+		case 3:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+			}
+			break;
+		case 4:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
+			}
+			break;
+		case 5:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+			}
+			break;
+		case 6:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
+			}
+			break;
+		case 7:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+			}
+			break;
+		case 8:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
+			}
+			break;
+		case 9:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+			}
+			break;
+		case 10:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+			}
+			break;
+		case 11:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
+			}
+			break;
+		case 12:
+			if (enabled)
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+			}
+			else
+			{
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+			}
+			break;
+	}
+}
 
 /* USER CODE END 4 */
 
