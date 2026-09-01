@@ -117,32 +117,25 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  ledArr[0].duty = 50;
-	  ledArr[0].enabled = true;
-	  HAL_Delay(500);
-	  ledArr[0].enabled = false;
-	  HAL_Delay(500);
-
-	  /* USER CODE END WHILE */
-//	for (uint8_t i = 0; i < 2; i++)
-//	{
-//		for (uint8_t j = 0; j < 3; j++)
-//		{
-//			ledArr[j].duty = dutyCycle;
-//			if ((i+j)%2 == 0)
-//			{
-//				ledArr[j].enabled = true;
-//			}
-//			else
-//			{
-//				ledArr[j].enabled = false;
-//			}
-//		}
-//		HAL_Delay(1000);
-//	}
-//	dutyCycle += 10;
-//	if (dutyCycle == 100)
-//		dutyCycle = 0;
+	for (uint8_t i = 0; i < 2; i++)
+	{
+		for (uint8_t j = 0; j < numLeds; j++)
+		{
+			ledArr[j].duty = (dutyCycle * IRQFreq) / 100;
+			if ((i+j)%2 == 0)
+			{
+				ledArr[j].enabled = true;
+			}
+			else
+			{
+				ledArr[j].enabled = false;
+			}
+		}
+		HAL_Delay(1000);
+	}
+	dutyCycle += 10;
+	if (dutyCycle == 100)
+		dutyCycle = 0;
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -306,13 +299,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 
 		// Cycle through LEDs
-		for (uint8_t i = 0; i < 2; i++)
+		for (uint8_t i = 0; i < numLeds; i++)
 		{
-			// Convert duty cycle % in terms of IRQ freq ticks
-			uint32_t dutyInTicks = (ledArr[i].duty * IRQFreq) / 100;
-
 			// If less than duty cycle set high else low
-			if ((tickCounter < dutyInTicks) && ledArr[i].enabled)
+			if ((tickCounter < ledArr[i].duty) && ledArr[i].enabled)
 			{
 				writeGPIO(i + 1, true);
 			}
