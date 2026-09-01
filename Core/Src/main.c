@@ -117,25 +117,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	for (uint8_t i = 0; i < 2; i++)
-	{
-		for (uint8_t j = 0; j < numLeds; j++)
-		{
-			ledArr[j].duty = (dutyCycle * IRQFreq) / 100;
-			if ((i+j)%2 == 0)
-			{
-				ledArr[j].enabled = true;
-			}
-			else
-			{
-				ledArr[j].enabled = false;
-			}
-		}
-		HAL_Delay(1000);
-	}
-	dutyCycle += 10;
-	if (dutyCycle == 100)
-		dutyCycle = 0;
+    /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -200,7 +183,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 59;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 39;
+  htim3.Init.Period = 3;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -269,14 +252,14 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PA5 PA7 */
   GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_7;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB1 */
   GPIO_InitStruct.Pin = GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
