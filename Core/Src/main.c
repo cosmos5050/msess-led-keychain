@@ -52,9 +52,11 @@ TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 volatile uint16_t tickCounter = 0;
-uint16_t dutyCycle = 0;
-uint16_t IRQFreq = 50;
+volatile uint8_t pattern = 2;
+uint16_t stepRes = 10;
+uint16_t defaultDuty = 1;
 uint8_t numLeds = 12;
+volatile uint8_t patternStep = 0;
 
 volatile LED_t ledArr[12];
 
@@ -67,6 +69,7 @@ static void MX_GPIO_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 void writeGPIO(uint8_t ledNum, bool enabled);
+void alternating();
 
 /* USER CODE END PFP */
 
@@ -115,11 +118,52 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  // Set all bits high
+
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	// Check if pattern's changed
+
+	// Overhead testing
+//	ledArr[0].duty = defaultDuty;
+//	ledArr[0].enabled = true;
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
+	HAL_Delay(100);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
+	HAL_Delay(100);
+
+//	writeGPIO(1, true);
+//	HAL_Delay(500);
+
+//	ledArr[1].duty = (defaultDuty * stepRes) / 100;
+//	ledArr[1].enabled = true;
+//	ledArr[0].enabled = false;
+
+//	writeGPIO(1, false);
+//	HAL_Delay(500);
+
+//	ledArr[1].enabled = false;
+
+//	ledArr[1].duty = defaultDuty;
+//	ledArr[2].duty = defaultDuty;
+//	ledArr[3].duty = defaultDuty;
+//
+//	switch(pattern)
+//	{
+//		case 0:
+//			alternating();
+//			break;
+//		case 1:
+//			ledArr[0].duty = defaultDuty;
+//			ledArr[0].enabled = true;
+//			HAL_Delay(500);
+//			ledArr[0].enabled = false;
+//			HAL_Delay(500);
+//			break;
+//	}
   }
   /* USER CODE END 3 */
 }
@@ -181,9 +225,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 59;
+  htim3.Init.Prescaler = 11;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 3;
+  htim3.Init.Period = 999;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -230,7 +274,7 @@ static void MX_GPIO_Init(void)
                           |GPIO_PIN_8, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6|GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PB9 PB0 PB2 PB3
                            PB4 PB5 PB6 PB7
@@ -243,15 +287,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA4 PA6 PA8 PA9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_8|GPIO_PIN_9;
+  /*Configure GPIO pin : PA5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PA6 PA8 PA9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_8|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA5 PA7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_7;
+  /*Configure GPIO pin : PA7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -262,6 +312,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_1_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
@@ -269,36 +326,74 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-// IRQ TIM3 for LED PWM
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+// ISR for button change
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    // Check instance member to see if tim3 has an IRQ
-	if (htim->Instance == TIM3)
-    {
-		//Reset tick counter if reached 100%
-		if (tickCounter >= IRQFreq)
-		{
-			tickCounter = 0;
-		}
+	uint8_t newPattern = 2;
 
-		// Cycle through LEDs
-		for (uint8_t i = 0; i < numLeds; i++)
-		{
-			// If less than duty cycle set high else low
-			if ((tickCounter < ledArr[i].duty) && ledArr[i].enabled)
-			{
-				writeGPIO(i + 1, true);
-			}
-			else
-			{
-				writeGPIO(i + 1, false);
-			}
-		}
+	// Set 1st bit 1
+	if (GPIO_Pin == GPIO_PIN_5)
+//		newPattern |= 1;
+	{
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
+	}
 
-        // Increment tick
-        tickCounter++;
-    }
+	// Set 2nd bit 1
+	if (GPIO_Pin == GPIO_PIN_7)
+//		newPattern |= 2;
+	{
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+	}
+
+	// Set 3rd bit 1
+	if (GPIO_Pin == GPIO_PIN_1)
+//		newPattern |= 4;
+	{
+//		ledArr[1].duty = defaultDuty;
+//		ledArr[2].duty = defaultDuty;
+//		ledArr[3].duty = defaultDuty;
+//
+//		ledArr[1].enabled = false;
+//		ledArr[2].enabled = false;
+//		ledArr[3].enabled = true;
+	}
+
+
+	// Update global pattern with new pattern
+	pattern = newPattern;
+	patternStep = 0;
 }
+
+// ISR TIM3 for LED PWM
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+//    // Check instance member to see if tim3 has an IRQ
+//	if (htim->Instance == TIM3)
+//    {
+//		//Reset tick counter if reached 100%
+//		if (tickCounter >= stepRes)
+//		{
+//			tickCounter = 0;
+//		}
+//
+//		// Cycle through LEDs
+//		for (uint8_t i = 0; i < numLeds; i++)
+//		{
+//			// If less than duty cycle set high else low
+//			if ((tickCounter < ledArr[i].duty) && ledArr[i].enabled)
+//			{
+//				writeGPIO(i + 1, true);
+//			}
+//			else
+//			{
+//				writeGPIO(i + 1, false);
+//			}
+//		}
+//
+//        // Increment tick
+//        tickCounter++;
+//    }
+//}
 
 // Lookup table to write GPIOs for PWM IRQ for cleanliness
 void writeGPIO(uint8_t ledNum, bool enabled)
@@ -423,6 +518,41 @@ void writeGPIO(uint8_t ledNum, bool enabled)
 			else
 			{
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+			}
+			break;
+	}
+}
+
+void alternating()
+{
+	static uint32_t startTime = 0;
+
+	switch(patternStep)
+	{
+		case 0:
+			if (HAL_GetTick() - startTime >= 500)
+			{
+				for (uint8_t i = 0; i < numLeds; i += 2)
+				{
+					ledArr[i].enabled = true;
+					ledArr[i].duty = defaultDuty;
+					ledArr[i+1].enabled = false;
+					ledArr[i+1].duty = defaultDuty;
+				}
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 1:
+			if (HAL_GetTick() - startTime >= 500)
+			{
+				for (uint8_t i = 0; i < numLeds; i += 2)
+				{
+					ledArr[i].enabled = false;
+					ledArr[i+1].enabled = true;
+				}
+				startTime = HAL_GetTick();
+				patternStep = 0;
 			}
 			break;
 	}
