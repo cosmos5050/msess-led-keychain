@@ -132,18 +132,18 @@ int main(void)
 //	ledArr[0].enabled = true;
 
 
-	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET)
-	{
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
-	}
+//	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET)
+//	{
+//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
+//	}
 
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
 	HAL_Delay(100);
 
-	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_7) == GPIO_PIN_RESET)
-	{
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-	}
+//	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_7) == GPIO_PIN_RESET)
+//	{
+//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+//	}
 
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
 	HAL_Delay(100);
@@ -302,7 +302,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PA5 PA7 */
   GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_7;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -315,13 +315,16 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PB1 */
   GPIO_InitStruct.Pin = GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI0_1_IRQn, 1, 0);
+  HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -331,28 +334,54 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 // ISR for button change
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
 {
-	uint8_t newPattern = 2;
-
-	// Set 1st bit 1
 	if (GPIO_Pin == GPIO_PIN_5)
-//		newPattern |= 1;
-	{
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
-	}
-
-	// Set 2nd bit 1
-	if (GPIO_Pin == GPIO_PIN_7)
-//		newPattern |= 2;
 	{
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
 	}
+}
 
-	// Set 3rd bit 1
-	if (GPIO_Pin == GPIO_PIN_1)
-//		newPattern |= 4;
+void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
+{
+	if (GPIO_Pin == GPIO_PIN_5)
 	{
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
+	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+//	uint8_t newPattern = 2;
+
+	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_6);
+
+	// Set 1st bit 1
+	if (GPIO_Pin == GPIO_PIN_5)
+	{
+//		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_6);
+
+//		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET)
+//		{
+//			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
+//		}
+//		else if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_SET)
+//		{
+//			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+//		}
+	}
+//
+//	// Set 2nd bit 1
+//	if (GPIO_Pin == GPIO_PIN_7)
+////		newPattern |= 2;
+//	{
+//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+//	}
+//
+//	// Set 3rd bit 1
+//	if (GPIO_Pin == GPIO_PIN_1)
+////		newPattern |= 4;
+//	{
 //		ledArr[1].duty = defaultDuty;
 //		ledArr[2].duty = defaultDuty;
 //		ledArr[3].duty = defaultDuty;
@@ -360,12 +389,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 //		ledArr[1].enabled = false;
 //		ledArr[2].enabled = false;
 //		ledArr[3].enabled = true;
-	}
+//	}
 
 
 	// Update global pattern with new pattern
-	pattern = newPattern;
-	patternStep = 0;
+//	pattern = newPattern;
+//	patternStep = 0;
 }
 
 // ISR TIM3 for LED PWM
