@@ -52,11 +52,12 @@ TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 volatile uint16_t tickCounter = 0;
-volatile uint8_t pattern = 2;
+volatile uint8_t pattern = 0;
 uint16_t stepRes = 10;
 uint16_t defaultDuty = 1;
 uint8_t numLeds = 12;
 volatile uint8_t patternStep = 0;
+volatile bool gpioNotReset = true;
 
 volatile LED_t ledArr[12];
 
@@ -127,56 +128,30 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	// Check if pattern's changed
 
-	// Overhead testing
-//	ledArr[0].duty = defaultDuty;
-//	ledArr[0].enabled = true;
+	switch(pattern)
+	{
+		case 0:
+			alternating();
+			break;
+		case 1:
+			if (gpioNotReset)
+			{
+				for (uint8_t i = 0; i < numLeds; i++)
+				{
+					ledArr[i].enabled = false;
+					ledArr[i].duty = defaultDuty;
 
+					gpioNotReset = false;
+				}
+			}
 
-//	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET)
-//	{
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
-//	}
-
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
-	HAL_Delay(100);
-
-//	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_7) == GPIO_PIN_RESET)
-//	{
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-//	}
-
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
-	HAL_Delay(100);
-
-//	writeGPIO(1, true);
-//	HAL_Delay(500);
-
-//	ledArr[1].duty = (defaultDuty * stepRes) / 100;
-//	ledArr[1].enabled = true;
-//	ledArr[0].enabled = false;
-
-//	writeGPIO(1, false);
-//	HAL_Delay(500);
-
-//	ledArr[1].enabled = false;
-
-//	ledArr[1].duty = defaultDuty;
-//	ledArr[2].duty = defaultDuty;
-//	ledArr[3].duty = defaultDuty;
-//
-//	switch(pattern)
-//	{
-//		case 0:
-//			alternating();
-//			break;
-//		case 1:
-//			ledArr[0].duty = defaultDuty;
-//			ledArr[0].enabled = true;
-//			HAL_Delay(500);
-//			ledArr[0].enabled = false;
-//			HAL_Delay(500);
-//			break;
-//	}
+			ledArr[0].duty = defaultDuty;
+			ledArr[0].enabled = true;
+			HAL_Delay(500);
+			ledArr[0].enabled = false;
+			HAL_Delay(500);
+			break;
+	}
   }
   /* USER CODE END 3 */
 }
@@ -333,100 +308,82 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-// ISR for button change
-void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
-{
-	if (GPIO_Pin == GPIO_PIN_5)
-	{
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-	}
-}
-
+// Set bit corresponding to switch if switched on
 void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
 {
 	if (GPIO_Pin == GPIO_PIN_5)
 	{
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
+		pattern |= 1;
 	}
+
+	if (GPIO_Pin == GPIO_PIN_7)
+	{
+		pattern |= 2;
+	}
+
+	if (GPIO_Pin == GPIO_PIN_1)
+	{
+		pattern |= 4;
+	}
+
+	// Reset pattern step
+	patternStep = 0;
+	gpioNotReset = true;
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+// Reset bit corresponding to switch if switched off
+void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
 {
-//	uint8_t newPattern = 2;
-
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_6);
-
-	// Set 1st bit 1
 	if (GPIO_Pin == GPIO_PIN_5)
 	{
-//		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_6);
-
-//		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET)
-//		{
-//			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
-//		}
-//		else if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_SET)
-//		{
-//			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-//		}
+		pattern &= ~(1 << 0);
 	}
-//
-//	// Set 2nd bit 1
-//	if (GPIO_Pin == GPIO_PIN_7)
-////		newPattern |= 2;
-//	{
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
-//	}
-//
-//	// Set 3rd bit 1
-//	if (GPIO_Pin == GPIO_PIN_1)
-////		newPattern |= 4;
-//	{
-//		ledArr[1].duty = defaultDuty;
-//		ledArr[2].duty = defaultDuty;
-//		ledArr[3].duty = defaultDuty;
-//
-//		ledArr[1].enabled = false;
-//		ledArr[2].enabled = false;
-//		ledArr[3].enabled = true;
-//	}
 
+	if (GPIO_Pin == GPIO_PIN_7)
+	{
+		pattern &= ~(1 << 1);
+	}
 
-	// Update global pattern with new pattern
-//	pattern = newPattern;
-//	patternStep = 0;
+	if (GPIO_Pin == GPIO_PIN_1)
+	{
+		pattern &= ~(1 << 2);
+	}
+
+	// Reset pattern step
+	patternStep = 0;
+	gpioNotReset = true;
 }
 
 // ISR TIM3 for LED PWM
-//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-//{
-//    // Check instance member to see if tim3 has an IRQ
-//	if (htim->Instance == TIM3)
-//    {
-//		//Reset tick counter if reached 100%
-//		if (tickCounter >= stepRes)
-//		{
-//			tickCounter = 0;
-//		}
-//
-//		// Cycle through LEDs
-//		for (uint8_t i = 0; i < numLeds; i++)
-//		{
-//			// If less than duty cycle set high else low
-//			if ((tickCounter < ledArr[i].duty) && ledArr[i].enabled)
-//			{
-//				writeGPIO(i + 1, true);
-//			}
-//			else
-//			{
-//				writeGPIO(i + 1, false);
-//			}
-//		}
-//
-//        // Increment tick
-//        tickCounter++;
-//    }
-//}
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	// Check instance member to see if tim3 has an IRQ
+	if (htim->Instance == TIM3)
+	{
+		//Reset tick counter if reached 100%
+		if (tickCounter >= stepRes)
+		{
+			tickCounter = 0;
+		}
+
+		// Cycle through LEDs
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			// If less than duty cycle set high else low
+			if ((tickCounter < ledArr[i].duty) && ledArr[i].enabled)
+			{
+				writeGPIO(i + 1, true);
+			}
+			else
+			{
+				writeGPIO(i + 1, false);
+			}
+		}
+
+		// Increment tick
+		tickCounter++;
+	}
+}
 
 // Lookup table to write GPIOs for PWM IRQ for cleanliness
 void writeGPIO(uint8_t ledNum, bool enabled)
@@ -559,6 +516,17 @@ void writeGPIO(uint8_t ledNum, bool enabled)
 void alternating()
 {
 	static uint32_t startTime = 0;
+
+	if (gpioNotReset)
+	{
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = false;
+			ledArr[i].duty = defaultDuty;
+
+			gpioNotReset = false;
+		}
+	}
 
 	switch(patternStep)
 	{
