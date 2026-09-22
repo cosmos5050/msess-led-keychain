@@ -6,6 +6,7 @@
 ../Core/Src/main.c:340:6:HAL_GPIO_EXTI_Rising_Callback	4
 ../Core/Src/main.c:363:6:HAL_TIM_PeriodElapsedCallback	6
 ../Core/Src/main.c:394:6:writeGPIO	26
-../Core/Src/main.c:521:6:sparkling	21
-../Core/Src/main.c:640:6:alternating	9
-../Core/Src/main.c:692:6:Error_Handler	1
+../Core/Src/main.c:522:13:reassignLedIdx	6
+../Core/Src/main.c:549:6:sparkling	52
+../Core/Src/main.c:822:6:alternating	9
+../Core/Src/main.c:874:6:Error_Handler	1

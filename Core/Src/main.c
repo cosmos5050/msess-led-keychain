@@ -518,46 +518,67 @@ void writeGPIO(uint8_t ledNum, bool enabled)
 	}
 }
 
+// Helper function for sparkling to pick a new random index for one LED slot
+static void reassignLedIdx(uint8_t randomLedIdx[3], uint8_t slot)
+{
+	bool notFarEnoughApart = true;
+	while (notFarEnoughApart)
+	{
+		randomLedIdx[slot] = rand() % numLeds;
+		notFarEnoughApart = false;
+
+		for (uint8_t j = 0; j < 3; j++)
+		{
+			if (j == slot)
+				continue;
+
+			uint8_t wrapDiff = numLeds - abs(randomLedIdx[slot] - randomLedIdx[j]);
+
+			if (wrapDiff > numLeds / 2)
+				wrapDiff = numLeds - wrapDiff;
+
+			if (wrapDiff <= 1)
+			{
+				notFarEnoughApart = true;
+				break;
+			}
+		}
+	}
+}
+
 void sparkling()
 {
 	static uint32_t startTime = 0;
 	static bool firstCycle = false;
-	static bool newPatternCycle = false;
+	static uint8_t randomLedIdx[3];
 
-	// Reset LEDs on first pattern run
+	// Reset LEDs on first pattern run, and seed the initial 3 indices
 	if (gpioNotReset)
 	{
 		for (uint8_t i = 0; i < numLeds; i++)
 		{
 			ledArr[i].enabled = false;
 			ledArr[i].duty = defaultDuty;
-
-			gpioNotReset = false;
-			firstCycle = true;
 		}
-	}
 
-	// Select new set of random numbers each iteration
-	static uint8_t randomLedIdx[3];
-	if (newPatternCycle)
-	{
+		// Initial seed for all three slots (same spacing rule as before,
+		// checking only against already-assigned slots since this only
+		// runs once at reset)
 		for (uint8_t i = 0; i < 3; i++)
 		{
-			// Get random LED num from 0-11 using program runtime
 			randomLedIdx[i] = rand() % numLeds;
 
 			for (uint8_t j = 0; j < i; j++)
 			{
 				bool notFarEnoughApart = true;
-				// Keep checking LED spacing until LEDs are 2 or greater apart
-				while(notFarEnoughApart)
+				while (notFarEnoughApart)
 				{
 					uint8_t wrapDiff = numLeds - abs(randomLedIdx[i] - randomLedIdx[j]);
 
 					if (wrapDiff > numLeds / 2)
 						wrapDiff = numLeds - wrapDiff;
 
-					if (wrapDiff <= 2)
+					if (wrapDiff <= 1)
 					{
 						randomLedIdx[i] = rand() % numLeds;
 					}
@@ -568,7 +589,9 @@ void sparkling()
 				}
 			}
 		}
-		newPatternCycle = false;
+
+		gpioNotReset = false;
+		firstCycle = true;
 	}
 
 	// Delay for each brightness increase
@@ -584,22 +607,33 @@ void sparkling()
 				ledArr[randomLedIdx[0]].duty = defaultDuty;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				if (firstCycle)
+				{
+					patternStep += 3;
+				}
+				else
+				{
+					patternStep++;
+				}
 			}
 			break;
 		case 1:
-			if (HAL_GetTick() - startTime >= brightnessDelay)
+			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty * 2;
+
+				ledArr[randomLedIdx[1]].enabled = false;
+				// idx[1] just turned off -> pick its next target now
+				reassignLedIdx(randomLedIdx, 1);
 
 				startTime = HAL_GetTick();
 				patternStep++;
 			}
 			break;
 		case 2:
-			if (HAL_GetTick() - startTime >= brightnessDelay)
+			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty * 3;
+
+				ledArr[randomLedIdx[2]].duty = defaultDuty;
 
 				startTime = HAL_GetTick();
 				patternStep++;
@@ -615,6 +649,90 @@ void sparkling()
 			}
 			break;
 		case 4:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[1]].duty = defaultDuty;
+				ledArr[randomLedIdx[1]].enabled = defaultDuty;
+
+				startTime = HAL_GetTick();
+				if (firstCycle)
+				{
+					patternStep += 2;
+					firstCycle = false;
+				}
+				else
+				{
+					patternStep++;
+				}
+			}
+			break;
+		case 5:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[2]].enabled = false;
+				// idx[2] just turned off -> pick its next target now
+				reassignLedIdx(randomLedIdx, 2);
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 6:
+			if (HAL_GetTick() - startTime >= brightnessDelay)
+			{
+				ledArr[randomLedIdx[0]].duty = defaultDuty * 3;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 7:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[1]].duty = defaultDuty * 2;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 8:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[2]].duty = defaultDuty;
+				ledArr[randomLedIdx[2]].enabled = true;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 9:
+			if (HAL_GetTick() - startTime >= brightnessDelay)
+			{
+				ledArr[randomLedIdx[0]].duty = defaultDuty * 2;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 10:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[1]].duty = defaultDuty * 3;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 11:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[2]].duty = defaultDuty * 2;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 12:
 			if (HAL_GetTick() - startTime >= brightnessDelay)
 			{
 				ledArr[randomLedIdx[0]].duty = defaultDuty;
@@ -623,15 +741,79 @@ void sparkling()
 				patternStep++;
 			}
 			break;
-		case 5:
+		case 13:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[1]].duty = defaultDuty * 2;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 14:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[2]].duty = defaultDuty * 3;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 15:
+			if (HAL_GetTick() - startTime >= brightnessDelay)
+			{
+				ledArr[randomLedIdx[0]].duty = defaultDuty;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 16:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[1]].duty = defaultDuty * 2;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 17:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[2]].duty = defaultDuty * 3;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 18:
 			if (HAL_GetTick() - startTime >= brightnessDelay)
 			{
 
 				ledArr[randomLedIdx[0]].enabled = false;
+				// idx[0] just turned off -> pick its next target now
+				reassignLedIdx(randomLedIdx, 0);
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 19:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[1]].duty = defaultDuty;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 20:
+			if (HAL_GetTick() - startTime >= 100)
+			{
+				ledArr[randomLedIdx[2]].duty = defaultDuty * 2;
 
 				startTime = HAL_GetTick();
 				patternStep = 0;
-				newPatternCycle = true;
 			}
 			break;
 	}
