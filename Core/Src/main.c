@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdlib.h>
 #include <stdbool.h>
 
 /* USER CODE END Includes */
@@ -71,6 +72,7 @@ static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 void writeGPIO(uint8_t ledNum, bool enabled);
 void alternating();
+void sparkling();
 
 /* USER CODE END PFP */
 
@@ -150,6 +152,9 @@ int main(void)
 			HAL_Delay(500);
 			ledArr[0].enabled = false;
 			HAL_Delay(500);
+			break;
+		case 2:
+			sparkling();
 			break;
 	}
   }
@@ -508,6 +513,125 @@ void writeGPIO(uint8_t ledNum, bool enabled)
 			else
 			{
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+			}
+			break;
+	}
+}
+
+void sparkling()
+{
+	static uint32_t startTime = 0;
+	static bool firstCycle = false;
+	static bool newPatternCycle = false;
+
+	// Reset LEDs on first pattern run
+	if (gpioNotReset)
+	{
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = false;
+			ledArr[i].duty = defaultDuty;
+
+			gpioNotReset = false;
+			firstCycle = true;
+		}
+	}
+
+	// Select new set of random numbers each iteration
+	static uint8_t randomLedIdx[3];
+	if (newPatternCycle)
+	{
+		for (uint8_t i = 0; i < 3; i++)
+		{
+			// Get random LED num from 0-11 using program runtime
+			randomLedIdx[i] = rand() % numLeds;
+
+			for (uint8_t j = 0; j < i; j++)
+			{
+				bool notFarEnoughApart = true;
+				// Keep checking LED spacing until LEDs are 2 or greater apart
+				while(notFarEnoughApart)
+				{
+					uint8_t wrapDiff = numLeds - abs(randomLedIdx[i] - randomLedIdx[j]);
+
+					if (wrapDiff > numLeds / 2)
+						wrapDiff = numLeds - wrapDiff;
+
+					if (wrapDiff <= 2)
+					{
+						randomLedIdx[i] = rand() % numLeds;
+					}
+					else
+					{
+						notFarEnoughApart = false;
+					}
+				}
+			}
+		}
+		newPatternCycle = false;
+	}
+
+	// Delay for each brightness increase
+	uint16_t brightnessDelay = 300;
+
+	switch(patternStep)
+	{
+		case 0:
+			if (HAL_GetTick() - startTime >= brightnessDelay)
+			{
+
+				ledArr[randomLedIdx[0]].enabled = true;
+				ledArr[randomLedIdx[0]].duty = defaultDuty;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 1:
+			if (HAL_GetTick() - startTime >= brightnessDelay)
+			{
+				ledArr[randomLedIdx[0]].duty = defaultDuty * 2;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 2:
+			if (HAL_GetTick() - startTime >= brightnessDelay)
+			{
+				ledArr[randomLedIdx[0]].duty = defaultDuty * 3;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 3:
+			if (HAL_GetTick() - startTime >= brightnessDelay)
+			{
+				ledArr[randomLedIdx[0]].duty = defaultDuty * 2;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 4:
+			if (HAL_GetTick() - startTime >= brightnessDelay)
+			{
+				ledArr[randomLedIdx[0]].duty = defaultDuty;
+
+				startTime = HAL_GetTick();
+				patternStep++;
+			}
+			break;
+		case 5:
+			if (HAL_GetTick() - startTime >= brightnessDelay)
+			{
+
+				ledArr[randomLedIdx[0]].enabled = false;
+
+				startTime = HAL_GetTick();
+				patternStep = 0;
+				newPatternCycle = true;
 			}
 			break;
 	}
