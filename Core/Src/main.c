@@ -72,6 +72,7 @@ static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 void writeGPIO(uint8_t ledNum, bool enabled);
 void alternating();
+void ledChaser();
 void sparkling();
 
 /* USER CODE END PFP */
@@ -136,22 +137,7 @@ int main(void)
 			alternating();
 			break;
 		case 1:
-			if (gpioNotReset)
-			{
-				for (uint8_t i = 0; i < numLeds; i++)
-				{
-					ledArr[i].enabled = false;
-					ledArr[i].duty = defaultDuty;
-
-					gpioNotReset = false;
-				}
-			}
-
-			ledArr[0].duty = defaultDuty;
-			ledArr[0].enabled = true;
-			HAL_Delay(500);
-			ledArr[0].enabled = false;
-			HAL_Delay(500);
+			ledChaser();
 			break;
 		case 2:
 			sparkling();
@@ -816,6 +802,49 @@ void sparkling()
 				patternStep = 0;
 			}
 			break;
+	}
+}
+
+void ledChaser()
+{
+	static uint32_t startTime = 0;
+
+	if (gpioNotReset)
+	{
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = false;
+			ledArr[i].duty = defaultDuty;
+
+			gpioNotReset = false;
+		}
+	}
+
+	uint16_t chaseDelay = 100;
+
+	if (HAL_GetTick() - startTime >= chaseDelay)
+	{
+		// Reset led idx once done one full cycle
+		if (patternStep >= numLeds + 2)
+		{
+			patternStep = 0;
+		}
+
+		// Turn off last LED from last idx
+		ledArr[patternStep].enabled = false;
+		// Turn on middle led and leds either side of it
+		ledArr[(patternStep + 1) % numLeds].enabled = true;
+		ledArr[(patternStep + 2) % numLeds].enabled = true;
+		ledArr[(patternStep + 3) % numLeds].enabled = true;
+
+		// Make middle LED brightest and leds on either side dimmer
+		// for a fading effect as they cycle
+		ledArr[(patternStep + 1) % numLeds].duty = defaultDuty;
+		ledArr[(patternStep + 2) % numLeds].duty = defaultDuty * 5;
+		ledArr[(patternStep + 3) % numLeds].duty = defaultDuty;
+
+		startTime = HAL_GetTick();
+		patternStep++;
 	}
 }
 
