@@ -825,7 +825,7 @@ void ledChaser()
 	if (HAL_GetTick() - startTime >= chaseDelay)
 	{
 		// Reset led idx once done one full cycle
-		if (patternStep >= numLeds + 2)
+		if (patternStep >= numLeds)
 		{
 			patternStep = 0;
 		}
