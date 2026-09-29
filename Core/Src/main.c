@@ -71,12 +71,14 @@ static void MX_GPIO_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 void writeGPIO(uint8_t ledNum, bool enabled);
+void pollButtons();
 void alternating();
 void ledChaser();
 void sparkling();
 void groupedLedChaser();
 void breathing();
 void comet();
+void meteorShower();
 void patternCycle();
 
 /* USER CODE END PFP */
@@ -134,11 +136,11 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	// Check if pattern's changed
+	pollButtons();
 
 	switch(pattern)
 	{
 		case 0:
-//			ledChaser();
 			comet();
 			break;
 		case 1:
@@ -157,6 +159,9 @@ int main(void)
 			ledChaser();
 			break;
 		case 6:
+			meteorShower();
+			break;
+		case 7:
 			patternCycle();
 			break;
 
@@ -286,7 +291,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PA5 PA7 */
   GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_7;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -299,16 +304,9 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PB1 */
   GPIO_InitStruct.Pin = GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -318,50 +316,50 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 // Set bit corresponding to switch if switched on
-void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
-{
-	if (GPIO_Pin == GPIO_PIN_5)
-	{
-		pattern |= 1;
-	}
-
-	if (GPIO_Pin == GPIO_PIN_7)
-	{
-		pattern |= 2;
-	}
-
-	if (GPIO_Pin == GPIO_PIN_1)
-	{
-		pattern |= 4;
-	}
-
-	// Reset pattern step
-	patternStep = 0;
-	gpioNotReset = true;
-}
-
-// Reset bit corresponding to switch if switched off
-void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
-{
-	if (GPIO_Pin == GPIO_PIN_5)
-	{
-		pattern &= ~(1 << 0);
-	}
-
-	if (GPIO_Pin == GPIO_PIN_7)
-	{
-		pattern &= ~(1 << 1);
-	}
-
-	if (GPIO_Pin == GPIO_PIN_1)
-	{
-		pattern &= ~(1 << 2);
-	}
-
-	// Reset pattern step
-	patternStep = 0;
-	gpioNotReset = true;
-}
+//void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
+//{
+//	if (GPIO_Pin == GPIO_PIN_5)
+//	{
+//		pattern |= 1;
+//	}
+//
+//	if (GPIO_Pin == GPIO_PIN_7)
+//	{
+//		pattern |= 2;
+//	}
+//
+//	if (GPIO_Pin == GPIO_PIN_1)
+//	{
+//		pattern |= 4;
+//	}
+//
+//	// Reset pattern step
+//	patternStep = 0;
+//	gpioNotReset = true;
+//}
+//
+//// Reset bit corresponding to switch if switched off
+//void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
+//{
+//	if (GPIO_Pin == GPIO_PIN_5)
+//	{
+//		pattern &= ~(1 << 0);
+//	}
+//
+//	if (GPIO_Pin == GPIO_PIN_7)
+//	{
+//		pattern &= ~(1 << 1);
+//	}
+//
+//	if (GPIO_Pin == GPIO_PIN_1)
+//	{
+//		pattern &= ~(1 << 2);
+//	}
+//
+//	// Reset pattern step
+//	patternStep = 0;
+//	gpioNotReset = true;
+//}
 
 // ISR TIM3 for LED PWM
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -1073,6 +1071,89 @@ void comet()
 	}
 }
 
+void meteorShower()
+{
+	static uint32_t startTime = 0;
+	static uint8_t head1 = 0;
+	static uint8_t head2 = 5;
+	static uint8_t head3 = 9;
+
+	uint16_t meteorDelay = 120;
+
+	if (gpioNotReset)
+	{
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = false;
+			ledArr[i].duty = defaultDuty;
+		}
+
+		head1 = 0;
+		head2 = 5;
+		head3 = 9;
+
+		patternStep = 0;
+		gpioNotReset = false;
+	}
+
+	if (HAL_GetTick() - startTime >= meteorDelay)
+	{
+		// Turn everything off
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = false;
+			ledArr[i].duty = defaultDuty;
+		}
+
+		// Meteor 1
+		ledArr[head1].enabled = true;
+		ledArr[head1].duty = stepRes;
+
+		ledArr[(head1 + numLeds - 1) % numLeds].enabled = true;
+		ledArr[(head1 + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+
+		ledArr[(head1 + numLeds - 2) % numLeds].enabled = true;
+		ledArr[(head1 + numLeds - 2) % numLeds].duty = defaultDuty;
+
+		// Meteor 2
+		ledArr[head2].enabled = true;
+		ledArr[head2].duty = stepRes;
+
+		ledArr[(head2 + numLeds - 1) % numLeds].enabled = true;
+		ledArr[(head2 + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+
+		ledArr[(head2 + numLeds - 2) % numLeds].enabled = true;
+		ledArr[(head2 + numLeds - 2) % numLeds].duty = defaultDuty;
+
+		// Meteor 3
+		ledArr[head3].enabled = true;
+		ledArr[head3].duty = stepRes;
+
+		ledArr[(head3 + numLeds - 1) % numLeds].enabled = true;
+		ledArr[(head3 + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+
+		ledArr[(head3 + numLeds - 2) % numLeds].enabled = true;
+		ledArr[(head3 + numLeds - 2) % numLeds].duty = defaultDuty;
+
+		// Move meteors
+		head1++;
+		head2++;
+		head3++;
+
+		// Wrap around
+		if (head1 >= numLeds)
+			head1 = 0;
+
+		if (head2 >= numLeds)
+			head2 = 0;
+
+		if (head3 >= numLeds)
+			head3 = 0;
+
+		startTime = HAL_GetTick();
+	}
+}
+
 void patternCycle()
 {
 	static uint32_t startTime = 0;
@@ -1085,7 +1166,7 @@ void patternCycle()
 		// Move to next pattern
 		currentPattern++;
 
-		if (currentPattern >= 6)
+		if (currentPattern >= 7)
 		{
 			currentPattern = 0;
 		}
@@ -1096,7 +1177,7 @@ void patternCycle()
 
 		// Prevent the individual pattern from being selected
 		// through the global pattern variable
-		pattern = 6;
+		pattern = 7;
 
 		startTime = HAL_GetTick();
 	}
@@ -1127,7 +1208,42 @@ void patternCycle()
 		case 5:
 			comet();
 			break;
+
+		case 6:
+			meteorShower();
+			break;
 	}
+}
+
+void pollButtons()
+{
+    uint8_t newPattern = 0;
+
+    // PA5 = bit 0
+    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET)
+    {
+        newPattern |= (1 << 0);
+    }
+
+    // PA7 = bit 1
+    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_7) == GPIO_PIN_RESET)
+    {
+        newPattern |= (1 << 1);
+    }
+
+    // PB1 = bit 2
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET)
+    {
+        newPattern |= (1 << 2);
+    }
+
+    // Only reset the pattern when the selected pattern changes
+    if (newPattern != pattern)
+    {
+        pattern = newPattern;
+        patternStep = 0;
+        gpioNotReset = true;
+    }
 }
 
 /* USER CODE END 4 */
