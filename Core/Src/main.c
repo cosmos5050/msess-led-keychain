@@ -76,6 +76,7 @@ void ledChaser();
 void sparkling();
 void groupedLedChaser();
 void breathing();
+void comet();
 
 /* USER CODE END PFP */
 
@@ -136,7 +137,8 @@ int main(void)
 	switch(pattern)
 	{
 		case 0:
-			ledChaser();
+//			ledChaser();
+			comet();
 			break;
 		case 1:
 			alternating();
@@ -149,6 +151,9 @@ int main(void)
 			break;
 		case 4:
 			breathing();
+			break;
+		case 5:
+			ledChaser();
 			break;
 
 	}
@@ -1000,6 +1005,64 @@ void breathing()
 					}
 				}
 				break;
+		}
+
+		startTime = HAL_GetTick();
+	}
+}
+
+void comet()
+{
+	static uint32_t startTime = 0;
+
+	if (gpioNotReset)
+	{
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = false;
+			ledArr[i].duty = defaultDuty;
+		}
+
+		gpioNotReset = false;
+		patternStep = 0;
+	}
+
+	uint16_t cometDelay = 100;
+
+	if (HAL_GetTick() - startTime >= cometDelay)
+	{
+		// Turn all LEDs off
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = false;
+			ledArr[i].duty = defaultDuty;
+		}
+
+		// Current LED
+		uint8_t head = patternStep;
+
+		// Head - brightest
+		ledArr[head].enabled = true;
+		ledArr[head].duty = defaultDuty * 5;
+
+		// Tail - medium brightness
+		ledArr[(head + numLeds - 1) % numLeds].enabled = true;
+		ledArr[(head + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+
+		// Tail - dimmer
+		ledArr[(head + numLeds - 2) % numLeds].enabled = true;
+		ledArr[(head + numLeds - 2) % numLeds].duty = defaultDuty * 2;
+
+		// Tail - dimmest
+		ledArr[(head + numLeds - 3) % numLeds].enabled = true;
+		ledArr[(head + numLeds - 3) % numLeds].duty = defaultDuty;
+
+		// Move comet
+		patternStep++;
+
+		if (patternStep >= numLeds)
+		{
+			patternStep = 0;
 		}
 
 		startTime = HAL_GetTick();
