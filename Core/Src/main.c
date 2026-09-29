@@ -77,6 +77,7 @@ void sparkling();
 void groupedLedChaser();
 void breathing();
 void comet();
+void patternCycle();
 
 /* USER CODE END PFP */
 
@@ -154,6 +155,9 @@ int main(void)
 			break;
 		case 5:
 			ledChaser();
+			break;
+		case 6:
+			patternCycle();
 			break;
 
 	}
@@ -1066,6 +1070,63 @@ void comet()
 		}
 
 		startTime = HAL_GetTick();
+	}
+}
+
+void patternCycle()
+{
+	static uint32_t startTime = 0;
+	static uint8_t currentPattern = 0;
+
+	uint16_t patternDelay = 5000;
+
+	if (HAL_GetTick() - startTime >= patternDelay)
+	{
+		// Move to next pattern
+		currentPattern++;
+
+		if (currentPattern >= 6)
+		{
+			currentPattern = 0;
+		}
+
+		// Reset pattern state
+		patternStep = 0;
+		gpioNotReset = true;
+
+		// Prevent the individual pattern from being selected
+		// through the global pattern variable
+		pattern = 6;
+
+		startTime = HAL_GetTick();
+	}
+
+	// Run current pattern
+	switch (currentPattern)
+	{
+		case 0:
+			alternating();
+			break;
+
+		case 1:
+			ledChaser();
+			break;
+
+		case 2:
+			sparkling();
+			break;
+
+		case 3:
+			groupedLedChaser();
+			break;
+
+		case 4:
+			breathing();
+			break;
+
+		case 5:
+			comet();
+			break;
 	}
 }
 
