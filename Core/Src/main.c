@@ -74,6 +74,7 @@ void writeGPIO(uint8_t ledNum, bool enabled);
 void alternating();
 void ledChaser();
 void sparkling();
+void groupedLedChaser();
 
 /* USER CODE END PFP */
 
@@ -134,14 +135,18 @@ int main(void)
 	switch(pattern)
 	{
 		case 0:
-			alternating();
+			ledChaser();
 			break;
 		case 1:
-			ledChaser();
+			alternating();
 			break;
 		case 2:
 			sparkling();
 			break;
+		case 3:
+			groupedLedChaser();
+			break;
+
 	}
   }
   /* USER CODE END 3 */
@@ -891,6 +896,53 @@ void alternating()
 				patternStep = 0;
 			}
 			break;
+	}
+}
+
+void groupedLedChaser()
+{
+	static uint32_t startTime = 0;
+
+	if (gpioNotReset)
+	{
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = false;
+			ledArr[i].duty = defaultDuty;
+		}
+
+		gpioNotReset = false;
+	}
+
+	uint16_t groupDelay = 500;
+
+	if (HAL_GetTick() - startTime >= groupDelay)
+	{
+		// Turn all LEDs off first
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = false;
+		}
+
+		// Turn on the current group of 3
+		uint8_t startLed = patternStep * 3;
+
+		for (uint8_t i = 0; i < 3; i++)
+		{
+			ledArr[startLed + i].enabled = true;
+			ledArr[startLed + i].duty = defaultDuty;
+		}
+
+		startTime = HAL_GetTick();
+
+		// Move to next group
+		patternStep++;
+
+		// 4 groups: 1-3, 4-6, 7-9, 10-12
+		if (patternStep >= numLeds / 3)
+		{
+			patternStep = 0;
+		}
 	}
 }
 
