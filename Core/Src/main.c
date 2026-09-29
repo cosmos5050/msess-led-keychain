@@ -75,6 +75,7 @@ void alternating();
 void ledChaser();
 void sparkling();
 void groupedLedChaser();
+void breathing();
 
 /* USER CODE END PFP */
 
@@ -145,6 +146,9 @@ int main(void)
 			break;
 		case 3:
 			groupedLedChaser();
+			break;
+		case 4:
+			breathing();
 			break;
 
 	}
@@ -943,6 +947,62 @@ void groupedLedChaser()
 		{
 			patternStep = 0;
 		}
+	}
+}
+
+void breathing()
+{
+	static uint32_t startTime = 0;
+
+	if (gpioNotReset)
+	{
+		for (uint8_t i = 0; i < numLeds; i++)
+		{
+			ledArr[i].enabled = true;
+			ledArr[i].duty = 0;
+		}
+
+		gpioNotReset = false;
+		patternStep = 0;
+	}
+
+	uint16_t breathingDelay = 50;
+
+	if (HAL_GetTick() - startTime >= breathingDelay)
+	{
+		switch (patternStep)
+		{
+			// Increasing brightness
+			case 0:
+				for (uint8_t i = 0; i < numLeds; i++)
+				{
+					ledArr[i].duty++;
+
+					if (ledArr[i].duty >= stepRes)
+					{
+						ledArr[i].duty = stepRes;
+						patternStep = 1;
+					}
+				}
+				break;
+
+			// Decreasing brightness
+			case 1:
+				for (uint8_t i = 0; i < numLeds; i++)
+				{
+					if (ledArr[i].duty > 0)
+					{
+						ledArr[i].duty--;
+					}
+					else
+					{
+						patternStep = 0;
+					}
+				}
+				break;
+		}
+
+		startTime = HAL_GetTick();
 	}
 }
 
