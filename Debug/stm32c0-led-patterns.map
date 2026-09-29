@@ -3189,16 +3189,18 @@ LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
                 0x20000000                        _sdata = .
  *(.data)
  *(.data*)
- .data.stepRes  0x20000000        0x2 ./Core/Src/main.o
-                0x20000000                stepRes
- .data.defaultDuty
+ .data.g_stepRes
+                0x20000000        0x2 ./Core/Src/main.o
+                0x20000000                g_stepRes
+ .data.g_defaultDuty
                 0x20000002        0x2 ./Core/Src/main.o
-                0x20000002                defaultDuty
- .data.numLeds  0x20000004        0x1 ./Core/Src/main.o
-                0x20000004                numLeds
- .data.gpioNotReset
+                0x20000002                g_defaultDuty
+ .data.g_numLeds
+                0x20000004        0x1 ./Core/Src/main.o
+                0x20000004                g_numLeds
+ .data.g_gpioNotReset
                 0x20000005        0x1 ./Core/Src/main.o
-                0x20000005                gpioNotReset
+                0x20000005                g_gpioNotReset
  .data.head2.4  0x20000006        0x1 ./Core/Src/main.o
  .data.head3.3  0x20000007        0x1 ./Core/Src/main.o
  .data.SystemCoreClock
@@ -3236,14 +3238,15 @@ LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  *(.bss*)
  .bss.htim3     0x2000008c       0x4c ./Core/Src/main.o
                 0x2000008c                htim3
- .bss.tickCounter
+ .bss.g_tickCounter
                 0x200000d8        0x2 ./Core/Src/main.o
-                0x200000d8                tickCounter
- .bss.pattern   0x200000da        0x1 ./Core/Src/main.o
-                0x200000da                pattern
- .bss.patternStep
+                0x200000d8                g_tickCounter
+ .bss.g_pattern
+                0x200000da        0x1 ./Core/Src/main.o
+                0x200000da                g_pattern
+ .bss.g_patternStep
                 0x200000db        0x1 ./Core/Src/main.o
-                0x200000db                patternStep
+                0x200000db                g_patternStep
  .bss.ledArr    0x200000dc       0x30 ./Core/Src/main.o
                 0x200000dc                ledArr
  .bss.randomLedIdx.13
@@ -3620,36 +3623,36 @@ LOAD C:/ST/STM32CubeIDE_1.19.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .debug_macro   0x00013c11      0x1c4 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim.o
  .debug_macro   0x00013dd5      0x1c2 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim_ex.o
 
-.debug_line     0x00000000     0xc1e2
- .debug_line    0x00000000     0x1656 ./Core/Src/main.o
- .debug_line    0x00001656      0x790 ./Core/Src/stm32c0xx_hal_msp.o
- .debug_line    0x00001de6      0x7b5 ./Core/Src/stm32c0xx_it.o
- .debug_line    0x0000259b      0x8ac ./Core/Src/syscalls.o
- .debug_line    0x00002e47      0x588 ./Core/Src/sysmem.o
- .debug_line    0x000033cf      0x797 ./Core/Src/system_stm32c0xx.o
- .debug_line    0x00003b66       0x7d ./Core/Startup/startup_stm32c031k6ux.o
- .debug_line    0x00003be3      0xa77 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal.o
- .debug_line    0x0000465a      0xb92 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_cortex.o
- .debug_line    0x000051ec      0xb8f ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_gpio.o
- .debug_line    0x00005d7b      0xd9a ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_rcc.o
- .debug_line    0x00006b15     0x3b9f ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim.o
- .debug_line    0x0000a6b4     0x1b2e ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim_ex.o
+.debug_line     0x00000000     0xc1e0
+ .debug_line    0x00000000     0x1654 ./Core/Src/main.o
+ .debug_line    0x00001654      0x790 ./Core/Src/stm32c0xx_hal_msp.o
+ .debug_line    0x00001de4      0x7b5 ./Core/Src/stm32c0xx_it.o
+ .debug_line    0x00002599      0x8ac ./Core/Src/syscalls.o
+ .debug_line    0x00002e45      0x588 ./Core/Src/sysmem.o
+ .debug_line    0x000033cd      0x797 ./Core/Src/system_stm32c0xx.o
+ .debug_line    0x00003b64       0x7d ./Core/Startup/startup_stm32c031k6ux.o
+ .debug_line    0x00003be1      0xa77 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal.o
+ .debug_line    0x00004658      0xb92 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_cortex.o
+ .debug_line    0x000051ea      0xb8f ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_gpio.o
+ .debug_line    0x00005d79      0xd9a ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_rcc.o
+ .debug_line    0x00006b13     0x3b9f ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim.o
+ .debug_line    0x0000a6b2     0x1b2e ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim_ex.o
 
-.debug_str      0x00000000    0x7bc94
- .debug_str     0x00000000    0x7bc94 ./Core/Src/main.o
-                              0x7775a (size before relaxing)
- .debug_str     0x0007bc94    0x7414f ./Core/Src/stm32c0xx_hal_msp.o
- .debug_str     0x0007bc94    0x73e9c ./Core/Src/stm32c0xx_it.o
- .debug_str     0x0007bc94     0x98c2 ./Core/Src/syscalls.o
- .debug_str     0x0007bc94     0x7660 ./Core/Src/sysmem.o
- .debug_str     0x0007bc94    0x7396d ./Core/Src/system_stm32c0xx.o
- .debug_str     0x0007bc94       0x66 ./Core/Startup/startup_stm32c031k6ux.o
- .debug_str     0x0007bc94    0x73f63 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal.o
- .debug_str     0x0007bc94    0x73d86 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_cortex.o
- .debug_str     0x0007bc94    0x73b65 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_gpio.o
- .debug_str     0x0007bc94    0x73f58 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_rcc.o
- .debug_str     0x0007bc94    0x74e95 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim.o
- .debug_str     0x0007bc94    0x74823 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim_ex.o
+.debug_str      0x00000000    0x7bca2
+ .debug_str     0x00000000    0x7bca2 ./Core/Src/main.o
+                              0x77768 (size before relaxing)
+ .debug_str     0x0007bca2    0x7414f ./Core/Src/stm32c0xx_hal_msp.o
+ .debug_str     0x0007bca2    0x73e9c ./Core/Src/stm32c0xx_it.o
+ .debug_str     0x0007bca2     0x98c2 ./Core/Src/syscalls.o
+ .debug_str     0x0007bca2     0x7660 ./Core/Src/sysmem.o
+ .debug_str     0x0007bca2    0x7396d ./Core/Src/system_stm32c0xx.o
+ .debug_str     0x0007bca2       0x66 ./Core/Startup/startup_stm32c031k6ux.o
+ .debug_str     0x0007bca2    0x73f63 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal.o
+ .debug_str     0x0007bca2    0x73d86 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_cortex.o
+ .debug_str     0x0007bca2    0x73b65 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_gpio.o
+ .debug_str     0x0007bca2    0x73f58 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_rcc.o
+ .debug_str     0x0007bca2    0x74e95 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim.o
+ .debug_str     0x0007bca2    0x74823 ./Drivers/STM32C0xx_HAL_Driver/Src/stm32c0xx_hal_tim_ex.o
 
 .comment        0x00000000       0x43
  .comment       0x00000000       0x43 ./Core/Src/main.o

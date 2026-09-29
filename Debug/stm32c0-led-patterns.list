@@ -37,15 +37,15 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  16 .debug_macro  00013f97  00000000  00000000  000123c3  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   0000c1e2  00000000  00000000  0002635a  2**0
+ 17 .debug_line   0000c1e0  00000000  00000000  0002635a  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    0007bc94  00000000  00000000  0003253c  2**0
+ 18 .debug_str    0007bca2  00000000  00000000  0003253a  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  000ae1d0  2**0
+ 19 .comment      00000043  00000000  00000000  000ae1dc  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00002fc8  00000000  00000000  000ae214  2**2
+ 20 .debug_frame  00002fc8  00000000  00000000  000ae220  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 0000004a  00000000  00000000  000b11dc  2**0
+ 21 .debug_line_str 0000004a  00000000  00000000  000b11e8  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -572,11 +572,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	// Check if pattern's changed
+	// Poll if patterns changed
 	pollButtons();
  8000488:	f001 fd44 	bl	8001f14 <pollButtons>
 
-	switch(pattern)
+	// Pick non-blocking pattern based of button combination
+	switch(g_pattern)
  800048c:	4b12      	ldr	r3, [pc, #72]	@ (80004d8 <main+0x74>)
  800048e:	781b      	ldrb	r3, [r3, #0]
  8000490:	b2db      	uxtb	r3, r3
@@ -1056,10 +1057,10 @@ static void MX_GPIO_Init(void)
  800073c:	50000400 	.word	0x50000400
 
 08000740 <HAL_TIM_PeriodElapsedCallback>:
-//	gpioNotReset = true;
-//}
+/* USER CODE BEGIN 4 */
 
 // ISR TIM3 for LED PWM
+// Timer: Interrupt rate 1kHz, 1ms
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
  8000740:	b580      	push	{r7, lr}
@@ -1075,7 +1076,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  8000750:	d14a      	bne.n	80007e8 <HAL_TIM_PeriodElapsedCallback+0xa8>
 	{
 		//Reset tick counter if reached 100%
-		if (tickCounter >= stepRes)
+		if (g_tickCounter >= g_stepRes)
  8000752:	4b28      	ldr	r3, [pc, #160]	@ (80007f4 <HAL_TIM_PeriodElapsedCallback+0xb4>)
  8000754:	881b      	ldrh	r3, [r3, #0]
  8000756:	b29a      	uxth	r2, r3
@@ -1084,14 +1085,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  800075c:	429a      	cmp	r2, r3
  800075e:	d302      	bcc.n	8000766 <HAL_TIM_PeriodElapsedCallback+0x26>
 		{
-			tickCounter = 0;
+			g_tickCounter = 0;
  8000760:	4b24      	ldr	r3, [pc, #144]	@ (80007f4 <HAL_TIM_PeriodElapsedCallback+0xb4>)
  8000762:	2200      	movs	r2, #0
  8000764:	801a      	strh	r2, [r3, #0]
 		}
 
 		// Cycle through LEDs
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8000766:	230f      	movs	r3, #15
  8000768:	18fb      	adds	r3, r7, r3
  800076a:	2200      	movs	r2, #0
@@ -1099,7 +1100,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  800076e:	e02d      	b.n	80007cc <HAL_TIM_PeriodElapsedCallback+0x8c>
 		{
 			// If less than duty cycle set high else low
-			if ((tickCounter < ledArr[i].duty) && ledArr[i].enabled)
+			if ((g_tickCounter < ledArr[i].duty) && ledArr[i].enabled)
  8000770:	210f      	movs	r1, #15
  8000772:	187b      	adds	r3, r7, r1
  8000774:	781a      	ldrb	r2, [r3, #0]
@@ -1144,7 +1145,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  80007b8:	2100      	movs	r1, #0
  80007ba:	0018      	movs	r0, r3
  80007bc:	f000 f822 	bl	8000804 <writeGPIO>
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  80007c0:	210f      	movs	r1, #15
  80007c2:	187b      	adds	r3, r7, r1
  80007c4:	781a      	ldrb	r2, [r3, #0]
@@ -1161,8 +1162,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 		}
 
-		// Increment tick
-		tickCounter++;
+		// Increment tick for each timer interrupt
+		g_tickCounter++;
  80007da:	4b06      	ldr	r3, [pc, #24]	@ (80007f4 <HAL_TIM_PeriodElapsedCallback+0xb4>)
  80007dc:	881b      	ldrh	r3, [r3, #0]
  80007de:	b29b      	uxth	r3, r3
@@ -1570,7 +1571,7 @@ void writeGPIO(uint8_t ledNum, bool enabled)
 
 08000a08 <reassignLedIdx>:
 
-// Helper function for sparkling to pick a new random index for one LED slot
+// Helper function for sparkling pattern to pick a new random index for LEDs
 static void reassignLedIdx(uint8_t randomLedIdx[3], uint8_t slot)
 {
  8000a08:	b590      	push	{r4, r7, lr}
@@ -1585,10 +1586,12 @@ static void reassignLedIdx(uint8_t randomLedIdx[3], uint8_t slot)
  8000a18:	18fb      	adds	r3, r7, r3
  8000a1a:	2201      	movs	r2, #1
  8000a1c:	701a      	strb	r2, [r3, #0]
+	// Loop for checking new idx until led idxs are spaced out
 	while (notFarEnoughApart)
  8000a1e:	e05b      	b.n	8000ad8 <reassignLedIdx+0xd0>
 	{
-		randomLedIdx[slot] = rand() % numLeds;
+		// get random num from 0-11
+		randomLedIdx[slot] = rand() % g_numLeds;
  8000a20:	f002 feb2 	bl	8003788 <rand>
  8000a24:	0002      	movs	r2, r0
  8000a26:	4b31      	ldr	r3, [pc, #196]	@ (8000aec <reassignLedIdx+0xe4>)
@@ -1617,6 +1620,7 @@ static void reassignLedIdx(uint8_t randomLedIdx[3], uint8_t slot)
  8000a50:	701a      	strb	r2, [r3, #0]
  8000a52:	e03c      	b.n	8000ace <reassignLedIdx+0xc6>
 		{
+			// Don't check idx difference for same idx
 			if (j == slot)
  8000a54:	240e      	movs	r4, #14
  8000a56:	193a      	adds	r2, r7, r4
@@ -1625,9 +1629,12 @@ static void reassignLedIdx(uint8_t randomLedIdx[3], uint8_t slot)
  8000a5c:	781b      	ldrb	r3, [r3, #0]
  8000a5e:	429a      	cmp	r2, r3
  8000a60:	d02e      	beq.n	8000ac0 <reassignLedIdx+0xb8>
+			{
 				continue;
+			}
 
-			uint8_t wrapDiff = numLeds - abs(randomLedIdx[slot] - randomLedIdx[j]);
+			// Difference between new led idx and others idxs
+			uint8_t wrapDiff = g_numLeds - abs(randomLedIdx[slot] - randomLedIdx[j]);
  8000a62:	4b22      	ldr	r3, [pc, #136]	@ (8000aec <reassignLedIdx+0xe4>)
  8000a64:	7819      	ldrb	r1, [r3, #0]
  8000a66:	1cfb      	adds	r3, r7, #3
@@ -1651,7 +1658,7 @@ static void reassignLedIdx(uint8_t randomLedIdx[3], uint8_t slot)
  8000a8a:	1a8a      	subs	r2, r1, r2
  8000a8c:	701a      	strb	r2, [r3, #0]
 
-			if (wrapDiff > numLeds / 2)
+			if (wrapDiff > g_numLeds / 2)
  8000a8e:	4b17      	ldr	r3, [pc, #92]	@ (8000aec <reassignLedIdx+0xe4>)
  8000a90:	781b      	ldrb	r3, [r3, #0]
  8000a92:	085b      	lsrs	r3, r3, #1
@@ -1660,7 +1667,8 @@ static void reassignLedIdx(uint8_t randomLedIdx[3], uint8_t slot)
  8000a98:	7812      	ldrb	r2, [r2, #0]
  8000a9a:	429a      	cmp	r2, r3
  8000a9c:	d906      	bls.n	8000aac <reassignLedIdx+0xa4>
-				wrapDiff = numLeds - wrapDiff;
+			{
+				wrapDiff = g_numLeds - wrapDiff;
  8000a9e:	4b13      	ldr	r3, [pc, #76]	@ (8000aec <reassignLedIdx+0xe4>)
  8000aa0:	7819      	ldrb	r1, [r3, #0]
  8000aa2:	183b      	adds	r3, r7, r0
@@ -1668,7 +1676,9 @@ static void reassignLedIdx(uint8_t randomLedIdx[3], uint8_t slot)
  8000aa6:	7812      	ldrb	r2, [r2, #0]
  8000aa8:	1a8a      	subs	r2, r1, r2
  8000aaa:	701a      	strb	r2, [r3, #0]
+			}
 
+			// Check if difference is more than 1
 			if (wrapDiff <= 1)
  8000aac:	230d      	movs	r3, #13
  8000aae:	18fb      	adds	r3, r7, r3
@@ -1726,7 +1736,7 @@ void sparkling()
 	static uint8_t randomLedIdx[3];
 
 	// Reset LEDs on first pattern run, and seed the initial 3 indices
-	if (gpioNotReset)
+	if (g_gpioNotReset)
  8000af6:	4be0      	ldr	r3, [pc, #896]	@ (8000e78 <sparkling+0x388>)
  8000af8:	781b      	ldrb	r3, [r3, #0]
  8000afa:	b2db      	uxtb	r3, r3
@@ -1734,7 +1744,7 @@ void sparkling()
  8000afe:	d100      	bne.n	8000b02 <sparkling+0x12>
  8000b00:	e091      	b.n	8000c26 <sparkling+0x136>
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8000b02:	1dfb      	adds	r3, r7, #7
  8000b04:	2200      	movs	r2, #0
  8000b06:	701a      	strb	r2, [r3, #0]
@@ -1749,7 +1759,7 @@ void sparkling()
  8000b14:	3302      	adds	r3, #2
  8000b16:	2200      	movs	r2, #0
  8000b18:	701a      	strb	r2, [r3, #0]
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
  8000b1a:	1dfb      	adds	r3, r7, #7
  8000b1c:	781a      	ldrb	r2, [r3, #0]
  8000b1e:	4bd8      	ldr	r3, [pc, #864]	@ (8000e80 <sparkling+0x390>)
@@ -1757,7 +1767,7 @@ void sparkling()
  8000b22:	4bd6      	ldr	r3, [pc, #856]	@ (8000e7c <sparkling+0x38c>)
  8000b24:	0092      	lsls	r2, r2, #2
  8000b26:	52d1      	strh	r1, [r2, r3]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8000b28:	1dfb      	adds	r3, r7, #7
  8000b2a:	781a      	ldrb	r2, [r3, #0]
  8000b2c:	1dfb      	adds	r3, r7, #7
@@ -1780,7 +1790,7 @@ void sparkling()
  8000b42:	701a      	strb	r2, [r3, #0]
  8000b44:	e065      	b.n	8000c12 <sparkling+0x122>
 		{
-			randomLedIdx[i] = rand() % numLeds;
+			randomLedIdx[i] = rand() % g_numLeds;
  8000b46:	f002 fe1f 	bl	8003788 <rand>
  8000b4a:	0002      	movs	r2, r0
  8000b4c:	4bcd      	ldr	r3, [pc, #820]	@ (8000e84 <sparkling+0x394>)
@@ -1809,7 +1819,7 @@ void sparkling()
 				while (notFarEnoughApart)
  8000b74:	e039      	b.n	8000bea <sparkling+0xfa>
 				{
-					uint8_t wrapDiff = numLeds - abs(randomLedIdx[i] - randomLedIdx[j]);
+					uint8_t wrapDiff = g_numLeds - abs(randomLedIdx[i] - randomLedIdx[j]);
  8000b76:	4bc3      	ldr	r3, [pc, #780]	@ (8000e84 <sparkling+0x394>)
  8000b78:	7819      	ldrb	r1, [r3, #0]
  8000b7a:	1dbb      	adds	r3, r7, #6
@@ -1830,7 +1840,7 @@ void sparkling()
  8000b98:	1a8a      	subs	r2, r1, r2
  8000b9a:	701a      	strb	r2, [r3, #0]
 
-					if (wrapDiff > numLeds / 2)
+					if (wrapDiff > g_numLeds / 2)
  8000b9c:	4bb9      	ldr	r3, [pc, #740]	@ (8000e84 <sparkling+0x394>)
  8000b9e:	781b      	ldrb	r3, [r3, #0]
  8000ba0:	085b      	lsrs	r3, r3, #1
@@ -1839,7 +1849,7 @@ void sparkling()
  8000ba6:	7812      	ldrb	r2, [r2, #0]
  8000ba8:	429a      	cmp	r2, r3
  8000baa:	d906      	bls.n	8000bba <sparkling+0xca>
-						wrapDiff = numLeds - wrapDiff;
+						wrapDiff = g_numLeds - wrapDiff;
  8000bac:	4bb5      	ldr	r3, [pc, #724]	@ (8000e84 <sparkling+0x394>)
  8000bae:	7819      	ldrb	r1, [r3, #0]
  8000bb0:	1cfb      	adds	r3, r7, #3
@@ -1854,7 +1864,7 @@ void sparkling()
  8000bbe:	2b01      	cmp	r3, #1
  8000bc0:	d810      	bhi.n	8000be4 <sparkling+0xf4>
 					{
-						randomLedIdx[i] = rand() % numLeds;
+						randomLedIdx[i] = rand() % g_numLeds;
  8000bc2:	f002 fde1 	bl	8003788 <rand>
  8000bc6:	0002      	movs	r2, r0
  8000bc8:	4bae      	ldr	r3, [pc, #696]	@ (8000e84 <sparkling+0x394>)
@@ -1909,7 +1919,7 @@ void sparkling()
 			}
 		}
 
-		gpioNotReset = false;
+		g_gpioNotReset = false;
  8000c1a:	4b97      	ldr	r3, [pc, #604]	@ (8000e78 <sparkling+0x388>)
  8000c1c:	2200      	movs	r2, #0
  8000c1e:	701a      	strb	r2, [r3, #0]
@@ -1926,7 +1936,7 @@ void sparkling()
  8000c2a:	0052      	lsls	r2, r2, #1
  8000c2c:	801a      	strh	r2, [r3, #0]
 
-	switch(patternStep)
+	switch(g_patternStep)
  8000c2e:	4b98      	ldr	r3, [pc, #608]	@ (8000e90 <sparkling+0x3a0>)
  8000c30:	781b      	ldrb	r3, [r3, #0]
  8000c32:	b2db      	uxtb	r3, r3
@@ -1962,7 +1972,7 @@ void sparkling()
  8000c64:	3302      	adds	r3, #2
  8000c66:	2201      	movs	r2, #1
  8000c68:	701a      	strb	r2, [r3, #0]
-				ledArr[randomLedIdx[0]].duty = defaultDuty;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty;
  8000c6a:	4b87      	ldr	r3, [pc, #540]	@ (8000e88 <sparkling+0x398>)
  8000c6c:	781b      	ldrb	r3, [r3, #0]
  8000c6e:	001a      	movs	r2, r3
@@ -1983,7 +1993,7 @@ void sparkling()
  8000c88:	2b00      	cmp	r3, #0
  8000c8a:	d007      	beq.n	8000c9c <sparkling+0x1ac>
 				{
-					patternStep += 3;
+					g_patternStep += 3;
  8000c8c:	4b80      	ldr	r3, [pc, #512]	@ (8000e90 <sparkling+0x3a0>)
  8000c8e:	781b      	ldrb	r3, [r3, #0]
  8000c90:	b2db      	uxtb	r3, r3
@@ -1993,12 +2003,12 @@ void sparkling()
  8000c98:	701a      	strb	r2, [r3, #0]
 				else
 				{
-					patternStep++;
+					g_patternStep++;
 				}
 			}
 			break;
  8000c9a:	e2db      	b.n	8001254 <sparkling+0x764>
-					patternStep++;
+					g_patternStep++;
  8000c9c:	4b7c      	ldr	r3, [pc, #496]	@ (8000e90 <sparkling+0x3a0>)
  8000c9e:	781b      	ldrb	r3, [r3, #0]
  8000ca0:	b2db      	uxtb	r3, r3
@@ -2041,7 +2051,7 @@ void sparkling()
  8000cdc:	0002      	movs	r2, r0
  8000cde:	4b6e      	ldr	r3, [pc, #440]	@ (8000e98 <sparkling+0x3a8>)
  8000ce0:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000ce2:	4b6b      	ldr	r3, [pc, #428]	@ (8000e90 <sparkling+0x3a0>)
  8000ce4:	781b      	ldrb	r3, [r3, #0]
  8000ce6:	b2db      	uxtb	r3, r3
@@ -2064,7 +2074,7 @@ void sparkling()
  8000d02:	e2ab      	b.n	800125c <sparkling+0x76c>
 			{
 
-				ledArr[randomLedIdx[2]].duty = defaultDuty;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty;
  8000d04:	4b60      	ldr	r3, [pc, #384]	@ (8000e88 <sparkling+0x398>)
  8000d06:	789b      	ldrb	r3, [r3, #2]
  8000d08:	001a      	movs	r2, r3
@@ -2079,7 +2089,7 @@ void sparkling()
  8000d18:	0002      	movs	r2, r0
  8000d1a:	4b5f      	ldr	r3, [pc, #380]	@ (8000e98 <sparkling+0x3a8>)
  8000d1c:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000d1e:	4b5c      	ldr	r3, [pc, #368]	@ (8000e90 <sparkling+0x3a0>)
  8000d20:	781b      	ldrb	r3, [r3, #0]
  8000d22:	b2db      	uxtb	r3, r3
@@ -2103,7 +2113,7 @@ void sparkling()
  8000d40:	d200      	bcs.n	8000d44 <sparkling+0x254>
  8000d42:	e28d      	b.n	8001260 <sparkling+0x770>
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty * 2;
  8000d44:	4b4e      	ldr	r3, [pc, #312]	@ (8000e80 <sparkling+0x390>)
  8000d46:	8819      	ldrh	r1, [r3, #0]
  8000d48:	4b4f      	ldr	r3, [pc, #316]	@ (8000e88 <sparkling+0x398>)
@@ -2121,7 +2131,7 @@ void sparkling()
  8000d5e:	0002      	movs	r2, r0
  8000d60:	4b4d      	ldr	r3, [pc, #308]	@ (8000e98 <sparkling+0x3a8>)
  8000d62:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000d64:	4b4a      	ldr	r3, [pc, #296]	@ (8000e90 <sparkling+0x3a0>)
  8000d66:	781b      	ldrb	r3, [r3, #0]
  8000d68:	b2db      	uxtb	r3, r3
@@ -2143,7 +2153,7 @@ void sparkling()
  8000d82:	d800      	bhi.n	8000d86 <sparkling+0x296>
  8000d84:	e26e      	b.n	8001264 <sparkling+0x774>
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty;
  8000d86:	4b40      	ldr	r3, [pc, #256]	@ (8000e88 <sparkling+0x398>)
  8000d88:	785b      	ldrb	r3, [r3, #1]
  8000d8a:	001a      	movs	r2, r3
@@ -2152,7 +2162,7 @@ void sparkling()
  8000d90:	4b3a      	ldr	r3, [pc, #232]	@ (8000e7c <sparkling+0x38c>)
  8000d92:	0092      	lsls	r2, r2, #2
  8000d94:	52d1      	strh	r1, [r2, r3]
-				ledArr[randomLedIdx[1]].enabled = defaultDuty;
+				ledArr[randomLedIdx[1]].enabled = g_defaultDuty;
  8000d96:	4b3a      	ldr	r3, [pc, #232]	@ (8000e80 <sparkling+0x390>)
  8000d98:	881b      	ldrh	r3, [r3, #0]
  8000d9a:	4a3b      	ldr	r2, [pc, #236]	@ (8000e88 <sparkling+0x398>)
@@ -2179,7 +2189,7 @@ void sparkling()
  8000dc0:	2b00      	cmp	r3, #0
  8000dc2:	d00a      	beq.n	8000dda <sparkling+0x2ea>
 				{
-					patternStep += 2;
+					g_patternStep += 2;
  8000dc4:	4b32      	ldr	r3, [pc, #200]	@ (8000e90 <sparkling+0x3a0>)
  8000dc6:	781b      	ldrb	r3, [r3, #0]
  8000dc8:	b2db      	uxtb	r3, r3
@@ -2193,12 +2203,12 @@ void sparkling()
  8000dd6:	701a      	strb	r2, [r3, #0]
 				else
 				{
-					patternStep++;
+					g_patternStep++;
 				}
 			}
 			break;
  8000dd8:	e244      	b.n	8001264 <sparkling+0x774>
-					patternStep++;
+					g_patternStep++;
  8000dda:	4b2d      	ldr	r3, [pc, #180]	@ (8000e90 <sparkling+0x3a0>)
  8000ddc:	781b      	ldrb	r3, [r3, #0]
  8000dde:	b2db      	uxtb	r3, r3
@@ -2240,7 +2250,7 @@ void sparkling()
  8000e1a:	0002      	movs	r2, r0
  8000e1c:	4b1e      	ldr	r3, [pc, #120]	@ (8000e98 <sparkling+0x3a8>)
  8000e1e:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000e20:	4b1b      	ldr	r3, [pc, #108]	@ (8000e90 <sparkling+0x3a0>)
  8000e22:	781b      	ldrb	r3, [r3, #0]
  8000e24:	b2db      	uxtb	r3, r3
@@ -2264,7 +2274,7 @@ void sparkling()
  8000e42:	d200      	bcs.n	8000e46 <sparkling+0x356>
  8000e44:	e212      	b.n	800126c <sparkling+0x77c>
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty * 3;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty * 3;
  8000e46:	4b0e      	ldr	r3, [pc, #56]	@ (8000e80 <sparkling+0x390>)
  8000e48:	881a      	ldrh	r2, [r3, #0]
  8000e4a:	4b0f      	ldr	r3, [pc, #60]	@ (8000e88 <sparkling+0x398>)
@@ -2283,7 +2293,7 @@ void sparkling()
  8000e62:	0002      	movs	r2, r0
  8000e64:	4b0c      	ldr	r3, [pc, #48]	@ (8000e98 <sparkling+0x3a8>)
  8000e66:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000e68:	4b09      	ldr	r3, [pc, #36]	@ (8000e90 <sparkling+0x3a0>)
  8000e6a:	781b      	ldrb	r3, [r3, #0]
  8000e6c:	b2db      	uxtb	r3, r3
@@ -2314,7 +2324,7 @@ void sparkling()
  8000eaa:	d800      	bhi.n	8000eae <sparkling+0x3be>
  8000eac:	e1e0      	b.n	8001270 <sparkling+0x780>
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty * 2;
  8000eae:	4bd7      	ldr	r3, [pc, #860]	@ (800120c <sparkling+0x71c>)
  8000eb0:	8819      	ldrh	r1, [r3, #0]
  8000eb2:	4bd7      	ldr	r3, [pc, #860]	@ (8001210 <sparkling+0x720>)
@@ -2332,7 +2342,7 @@ void sparkling()
  8000ec8:	0002      	movs	r2, r0
  8000eca:	4bcf      	ldr	r3, [pc, #828]	@ (8001208 <sparkling+0x718>)
  8000ecc:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000ece:	4bd2      	ldr	r3, [pc, #840]	@ (8001218 <sparkling+0x728>)
  8000ed0:	781b      	ldrb	r3, [r3, #0]
  8000ed2:	b2db      	uxtb	r3, r3
@@ -2354,7 +2364,7 @@ void sparkling()
  8000eec:	d800      	bhi.n	8000ef0 <sparkling+0x400>
  8000eee:	e1c1      	b.n	8001274 <sparkling+0x784>
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty;
  8000ef0:	4bc7      	ldr	r3, [pc, #796]	@ (8001210 <sparkling+0x720>)
  8000ef2:	789b      	ldrb	r3, [r3, #2]
  8000ef4:	001a      	movs	r2, r3
@@ -2378,7 +2388,7 @@ void sparkling()
  8000f14:	0002      	movs	r2, r0
  8000f16:	4bbc      	ldr	r3, [pc, #752]	@ (8001208 <sparkling+0x718>)
  8000f18:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000f1a:	4bbf      	ldr	r3, [pc, #764]	@ (8001218 <sparkling+0x728>)
  8000f1c:	781b      	ldrb	r3, [r3, #0]
  8000f1e:	b2db      	uxtb	r3, r3
@@ -2402,7 +2412,7 @@ void sparkling()
  8000f3c:	d200      	bcs.n	8000f40 <sparkling+0x450>
  8000f3e:	e19b      	b.n	8001278 <sparkling+0x788>
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty * 2;
  8000f40:	4bb2      	ldr	r3, [pc, #712]	@ (800120c <sparkling+0x71c>)
  8000f42:	8819      	ldrh	r1, [r3, #0]
  8000f44:	4bb2      	ldr	r3, [pc, #712]	@ (8001210 <sparkling+0x720>)
@@ -2420,7 +2430,7 @@ void sparkling()
  8000f5a:	0002      	movs	r2, r0
  8000f5c:	4baa      	ldr	r3, [pc, #680]	@ (8001208 <sparkling+0x718>)
  8000f5e:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000f60:	4bad      	ldr	r3, [pc, #692]	@ (8001218 <sparkling+0x728>)
  8000f62:	781b      	ldrb	r3, [r3, #0]
  8000f64:	b2db      	uxtb	r3, r3
@@ -2442,7 +2452,7 @@ void sparkling()
  8000f7e:	d800      	bhi.n	8000f82 <sparkling+0x492>
  8000f80:	e17c      	b.n	800127c <sparkling+0x78c>
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty * 3;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty * 3;
  8000f82:	4ba2      	ldr	r3, [pc, #648]	@ (800120c <sparkling+0x71c>)
  8000f84:	881a      	ldrh	r2, [r3, #0]
  8000f86:	4ba2      	ldr	r3, [pc, #648]	@ (8001210 <sparkling+0x720>)
@@ -2461,7 +2471,7 @@ void sparkling()
  8000f9e:	0002      	movs	r2, r0
  8000fa0:	4b99      	ldr	r3, [pc, #612]	@ (8001208 <sparkling+0x718>)
  8000fa2:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000fa4:	4b9c      	ldr	r3, [pc, #624]	@ (8001218 <sparkling+0x728>)
  8000fa6:	781b      	ldrb	r3, [r3, #0]
  8000fa8:	b2db      	uxtb	r3, r3
@@ -2483,7 +2493,7 @@ void sparkling()
  8000fc2:	d800      	bhi.n	8000fc6 <sparkling+0x4d6>
  8000fc4:	e15c      	b.n	8001280 <sparkling+0x790>
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty * 2;
  8000fc6:	4b91      	ldr	r3, [pc, #580]	@ (800120c <sparkling+0x71c>)
  8000fc8:	8819      	ldrh	r1, [r3, #0]
  8000fca:	4b91      	ldr	r3, [pc, #580]	@ (8001210 <sparkling+0x720>)
@@ -2501,7 +2511,7 @@ void sparkling()
  8000fe0:	0002      	movs	r2, r0
  8000fe2:	4b89      	ldr	r3, [pc, #548]	@ (8001208 <sparkling+0x718>)
  8000fe4:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8000fe6:	4b8c      	ldr	r3, [pc, #560]	@ (8001218 <sparkling+0x728>)
  8000fe8:	781b      	ldrb	r3, [r3, #0]
  8000fea:	b2db      	uxtb	r3, r3
@@ -2525,7 +2535,7 @@ void sparkling()
  8001008:	d200      	bcs.n	800100c <sparkling+0x51c>
  800100a:	e13b      	b.n	8001284 <sparkling+0x794>
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty;
  800100c:	4b80      	ldr	r3, [pc, #512]	@ (8001210 <sparkling+0x720>)
  800100e:	781b      	ldrb	r3, [r3, #0]
  8001010:	001a      	movs	r2, r3
@@ -2540,7 +2550,7 @@ void sparkling()
  8001020:	0002      	movs	r2, r0
  8001022:	4b79      	ldr	r3, [pc, #484]	@ (8001208 <sparkling+0x718>)
  8001024:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8001026:	4b7c      	ldr	r3, [pc, #496]	@ (8001218 <sparkling+0x728>)
  8001028:	781b      	ldrb	r3, [r3, #0]
  800102a:	b2db      	uxtb	r3, r3
@@ -2562,7 +2572,7 @@ void sparkling()
  8001044:	d800      	bhi.n	8001048 <sparkling+0x558>
  8001046:	e11f      	b.n	8001288 <sparkling+0x798>
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty * 2;
  8001048:	4b70      	ldr	r3, [pc, #448]	@ (800120c <sparkling+0x71c>)
  800104a:	8819      	ldrh	r1, [r3, #0]
  800104c:	4b70      	ldr	r3, [pc, #448]	@ (8001210 <sparkling+0x720>)
@@ -2580,7 +2590,7 @@ void sparkling()
  8001062:	0002      	movs	r2, r0
  8001064:	4b68      	ldr	r3, [pc, #416]	@ (8001208 <sparkling+0x718>)
  8001066:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8001068:	4b6b      	ldr	r3, [pc, #428]	@ (8001218 <sparkling+0x728>)
  800106a:	781b      	ldrb	r3, [r3, #0]
  800106c:	b2db      	uxtb	r3, r3
@@ -2602,7 +2612,7 @@ void sparkling()
  8001086:	d800      	bhi.n	800108a <sparkling+0x59a>
  8001088:	e100      	b.n	800128c <sparkling+0x79c>
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty * 3;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty * 3;
  800108a:	4b60      	ldr	r3, [pc, #384]	@ (800120c <sparkling+0x71c>)
  800108c:	881a      	ldrh	r2, [r3, #0]
  800108e:	4b60      	ldr	r3, [pc, #384]	@ (8001210 <sparkling+0x720>)
@@ -2621,7 +2631,7 @@ void sparkling()
  80010a6:	0002      	movs	r2, r0
  80010a8:	4b57      	ldr	r3, [pc, #348]	@ (8001208 <sparkling+0x718>)
  80010aa:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  80010ac:	4b5a      	ldr	r3, [pc, #360]	@ (8001218 <sparkling+0x728>)
  80010ae:	781b      	ldrb	r3, [r3, #0]
  80010b0:	b2db      	uxtb	r3, r3
@@ -2645,7 +2655,7 @@ void sparkling()
  80010ce:	d200      	bcs.n	80010d2 <sparkling+0x5e2>
  80010d0:	e0de      	b.n	8001290 <sparkling+0x7a0>
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty;
  80010d2:	4b4f      	ldr	r3, [pc, #316]	@ (8001210 <sparkling+0x720>)
  80010d4:	781b      	ldrb	r3, [r3, #0]
  80010d6:	001a      	movs	r2, r3
@@ -2660,7 +2670,7 @@ void sparkling()
  80010e6:	0002      	movs	r2, r0
  80010e8:	4b47      	ldr	r3, [pc, #284]	@ (8001208 <sparkling+0x718>)
  80010ea:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  80010ec:	4b4a      	ldr	r3, [pc, #296]	@ (8001218 <sparkling+0x728>)
  80010ee:	781b      	ldrb	r3, [r3, #0]
  80010f0:	b2db      	uxtb	r3, r3
@@ -2682,7 +2692,7 @@ void sparkling()
  800110a:	d800      	bhi.n	800110e <sparkling+0x61e>
  800110c:	e0c2      	b.n	8001294 <sparkling+0x7a4>
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty * 2;
  800110e:	4b3f      	ldr	r3, [pc, #252]	@ (800120c <sparkling+0x71c>)
  8001110:	8819      	ldrh	r1, [r3, #0]
  8001112:	4b3f      	ldr	r3, [pc, #252]	@ (8001210 <sparkling+0x720>)
@@ -2700,7 +2710,7 @@ void sparkling()
  8001128:	0002      	movs	r2, r0
  800112a:	4b37      	ldr	r3, [pc, #220]	@ (8001208 <sparkling+0x718>)
  800112c:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  800112e:	4b3a      	ldr	r3, [pc, #232]	@ (8001218 <sparkling+0x728>)
  8001130:	781b      	ldrb	r3, [r3, #0]
  8001132:	b2db      	uxtb	r3, r3
@@ -2722,7 +2732,7 @@ void sparkling()
  800114c:	d800      	bhi.n	8001150 <sparkling+0x660>
  800114e:	e0a3      	b.n	8001298 <sparkling+0x7a8>
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty * 3;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty * 3;
  8001150:	4b2e      	ldr	r3, [pc, #184]	@ (800120c <sparkling+0x71c>)
  8001152:	881a      	ldrh	r2, [r3, #0]
  8001154:	4b2e      	ldr	r3, [pc, #184]	@ (8001210 <sparkling+0x720>)
@@ -2741,7 +2751,7 @@ void sparkling()
  800116c:	0002      	movs	r2, r0
  800116e:	4b26      	ldr	r3, [pc, #152]	@ (8001208 <sparkling+0x718>)
  8001170:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8001172:	4b29      	ldr	r3, [pc, #164]	@ (8001218 <sparkling+0x728>)
  8001174:	781b      	ldrb	r3, [r3, #0]
  8001176:	b2db      	uxtb	r3, r3
@@ -2787,7 +2797,7 @@ void sparkling()
  80011b6:	0002      	movs	r2, r0
  80011b8:	4b13      	ldr	r3, [pc, #76]	@ (8001208 <sparkling+0x718>)
  80011ba:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  80011bc:	4b16      	ldr	r3, [pc, #88]	@ (8001218 <sparkling+0x728>)
  80011be:	781b      	ldrb	r3, [r3, #0]
  80011c0:	b2db      	uxtb	r3, r3
@@ -2808,7 +2818,7 @@ void sparkling()
  80011d8:	2b63      	cmp	r3, #99	@ 0x63
  80011da:	d961      	bls.n	80012a0 <sparkling+0x7b0>
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty;
  80011dc:	4b0c      	ldr	r3, [pc, #48]	@ (8001210 <sparkling+0x720>)
  80011de:	785b      	ldrb	r3, [r3, #1]
  80011e0:	001a      	movs	r2, r3
@@ -2823,7 +2833,7 @@ void sparkling()
  80011f0:	0002      	movs	r2, r0
  80011f2:	4b05      	ldr	r3, [pc, #20]	@ (8001208 <sparkling+0x718>)
  80011f4:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  80011f6:	4b08      	ldr	r3, [pc, #32]	@ (8001218 <sparkling+0x728>)
  80011f8:	781b      	ldrb	r3, [r3, #0]
  80011fa:	b2db      	uxtb	r3, r3
@@ -2850,7 +2860,7 @@ void sparkling()
  8001228:	2b63      	cmp	r3, #99	@ 0x63
  800122a:	d93b      	bls.n	80012a4 <sparkling+0x7b4>
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty * 2;
  800122c:	4b21      	ldr	r3, [pc, #132]	@ (80012b4 <sparkling+0x7c4>)
  800122e:	8819      	ldrh	r1, [r3, #0]
  8001230:	4b21      	ldr	r3, [pc, #132]	@ (80012b8 <sparkling+0x7c8>)
@@ -2868,7 +2878,7 @@ void sparkling()
  8001246:	0002      	movs	r2, r0
  8001248:	4b19      	ldr	r3, [pc, #100]	@ (80012b0 <sparkling+0x7c0>)
  800124a:	601a      	str	r2, [r3, #0]
-				patternStep = 0;
+				g_patternStep = 0;
  800124c:	4b1c      	ldr	r3, [pc, #112]	@ (80012c0 <sparkling+0x7d0>)
  800124e:	2200      	movs	r2, #0
  8001250:	701a      	strb	r2, [r3, #0]
@@ -2959,14 +2969,14 @@ void ledChaser()
  80012c8:	af00      	add	r7, sp, #0
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
  80012ca:	4b61      	ldr	r3, [pc, #388]	@ (8001450 <ledChaser+0x18c>)
  80012cc:	781b      	ldrb	r3, [r3, #0]
  80012ce:	b2db      	uxtb	r3, r3
  80012d0:	2b00      	cmp	r3, #0
  80012d2:	d020      	beq.n	8001316 <ledChaser+0x52>
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  80012d4:	1dfb      	adds	r3, r7, #7
  80012d6:	2200      	movs	r2, #0
  80012d8:	701a      	strb	r2, [r3, #0]
@@ -2981,7 +2991,7 @@ void ledChaser()
  80012e6:	3302      	adds	r3, #2
  80012e8:	2200      	movs	r2, #0
  80012ea:	701a      	strb	r2, [r3, #0]
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
  80012ec:	1dfb      	adds	r3, r7, #7
  80012ee:	781a      	ldrb	r2, [r3, #0]
  80012f0:	4b59      	ldr	r3, [pc, #356]	@ (8001458 <ledChaser+0x194>)
@@ -2990,11 +3000,11 @@ void ledChaser()
  80012f6:	0092      	lsls	r2, r2, #2
  80012f8:	52d1      	strh	r1, [r2, r3]
 
-			gpioNotReset = false;
+			g_gpioNotReset = false;
  80012fa:	4b55      	ldr	r3, [pc, #340]	@ (8001450 <ledChaser+0x18c>)
  80012fc:	2200      	movs	r2, #0
  80012fe:	701a      	strb	r2, [r3, #0]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001300:	1dfb      	adds	r3, r7, #7
  8001302:	781a      	ldrb	r2, [r3, #0]
  8001304:	1dfb      	adds	r3, r7, #7
@@ -3027,7 +3037,7 @@ void ledChaser()
  8001330:	e089      	b.n	8001446 <ledChaser+0x182>
 	{
 		// Reset led idx once done one full cycle
-		if (patternStep >= numLeds)
+		if (g_patternStep >= g_numLeds)
  8001332:	4b4c      	ldr	r3, [pc, #304]	@ (8001464 <ledChaser+0x1a0>)
  8001334:	781b      	ldrb	r3, [r3, #0]
  8001336:	b2da      	uxtb	r2, r3
@@ -3036,14 +3046,14 @@ void ledChaser()
  800133c:	429a      	cmp	r2, r3
  800133e:	d302      	bcc.n	8001346 <ledChaser+0x82>
 		{
-			patternStep = 0;
+			g_patternStep = 0;
  8001340:	4b48      	ldr	r3, [pc, #288]	@ (8001464 <ledChaser+0x1a0>)
  8001342:	2200      	movs	r2, #0
  8001344:	701a      	strb	r2, [r3, #0]
 		}
 
 		// Turn off last LED from last idx
-		ledArr[patternStep].enabled = false;
+		ledArr[g_patternStep].enabled = false;
  8001346:	4b47      	ldr	r3, [pc, #284]	@ (8001464 <ledChaser+0x1a0>)
  8001348:	781b      	ldrb	r3, [r3, #0]
  800134a:	b2db      	uxtb	r3, r3
@@ -3054,7 +3064,7 @@ void ledChaser()
  8001354:	2200      	movs	r2, #0
  8001356:	701a      	strb	r2, [r3, #0]
 		// Turn on middle led and leds either side of it
-		ledArr[(patternStep + 1) % numLeds].enabled = true;
+		ledArr[(g_patternStep + 1) % g_numLeds].enabled = true;
  8001358:	4b42      	ldr	r3, [pc, #264]	@ (8001464 <ledChaser+0x1a0>)
  800135a:	781b      	ldrb	r3, [r3, #0]
  800135c:	b2db      	uxtb	r3, r3
@@ -3071,7 +3081,7 @@ void ledChaser()
  8001374:	3302      	adds	r3, #2
  8001376:	2201      	movs	r2, #1
  8001378:	701a      	strb	r2, [r3, #0]
-		ledArr[(patternStep + 2) % numLeds].enabled = true;
+		ledArr[(g_patternStep + 2) % g_numLeds].enabled = true;
  800137a:	4b3a      	ldr	r3, [pc, #232]	@ (8001464 <ledChaser+0x1a0>)
  800137c:	781b      	ldrb	r3, [r3, #0]
  800137e:	b2db      	uxtb	r3, r3
@@ -3088,7 +3098,7 @@ void ledChaser()
  8001396:	3302      	adds	r3, #2
  8001398:	2201      	movs	r2, #1
  800139a:	701a      	strb	r2, [r3, #0]
-		ledArr[(patternStep + 3) % numLeds].enabled = true;
+		ledArr[(g_patternStep + 3) % g_numLeds].enabled = true;
  800139c:	4b31      	ldr	r3, [pc, #196]	@ (8001464 <ledChaser+0x1a0>)
  800139e:	781b      	ldrb	r3, [r3, #0]
  80013a0:	b2db      	uxtb	r3, r3
@@ -3108,7 +3118,7 @@ void ledChaser()
 
 		// Make middle LED brightest and leds on either side dimmer
 		// for a fading effect as they cycle
-		ledArr[(patternStep + 1) % numLeds].duty = defaultDuty;
+		ledArr[(g_patternStep + 1) % g_numLeds].duty = g_defaultDuty;
  80013be:	4b29      	ldr	r3, [pc, #164]	@ (8001464 <ledChaser+0x1a0>)
  80013c0:	781b      	ldrb	r3, [r3, #0]
  80013c2:	b2db      	uxtb	r3, r3
@@ -3125,7 +3135,7 @@ void ledChaser()
  80013da:	4b1e      	ldr	r3, [pc, #120]	@ (8001454 <ledChaser+0x190>)
  80013dc:	0092      	lsls	r2, r2, #2
  80013de:	52d1      	strh	r1, [r2, r3]
-		ledArr[(patternStep + 2) % numLeds].duty = defaultDuty * 5;
+		ledArr[(g_patternStep + 2) % g_numLeds].duty = g_defaultDuty * 5;
  80013e0:	4b1d      	ldr	r3, [pc, #116]	@ (8001458 <ledChaser+0x194>)
  80013e2:	881c      	ldrh	r4, [r3, #0]
  80013e4:	4b1f      	ldr	r3, [pc, #124]	@ (8001464 <ledChaser+0x1a0>)
@@ -3147,7 +3157,7 @@ void ledChaser()
  8001406:	4b13      	ldr	r3, [pc, #76]	@ (8001454 <ledChaser+0x190>)
  8001408:	0092      	lsls	r2, r2, #2
  800140a:	52d1      	strh	r1, [r2, r3]
-		ledArr[(patternStep + 3) % numLeds].duty = defaultDuty;
+		ledArr[(g_patternStep + 3) % g_numLeds].duty = g_defaultDuty;
  800140c:	4b15      	ldr	r3, [pc, #84]	@ (8001464 <ledChaser+0x1a0>)
  800140e:	781b      	ldrb	r3, [r3, #0]
  8001410:	b2db      	uxtb	r3, r3
@@ -3170,7 +3180,7 @@ void ledChaser()
  8001432:	0002      	movs	r2, r0
  8001434:	4b0a      	ldr	r3, [pc, #40]	@ (8001460 <ledChaser+0x19c>)
  8001436:	601a      	str	r2, [r3, #0]
-		patternStep++;
+		g_patternStep++;
  8001438:	4b0a      	ldr	r3, [pc, #40]	@ (8001464 <ledChaser+0x1a0>)
  800143a:	781b      	ldrb	r3, [r3, #0]
  800143c:	b2db      	uxtb	r3, r3
@@ -3201,14 +3211,14 @@ void alternating()
  800146c:	af00      	add	r7, sp, #0
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
  800146e:	4b57      	ldr	r3, [pc, #348]	@ (80015cc <alternating+0x164>)
  8001470:	781b      	ldrb	r3, [r3, #0]
  8001472:	b2db      	uxtb	r3, r3
  8001474:	2b00      	cmp	r3, #0
  8001476:	d020      	beq.n	80014ba <alternating+0x52>
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001478:	1dfb      	adds	r3, r7, #7
  800147a:	2200      	movs	r2, #0
  800147c:	701a      	strb	r2, [r3, #0]
@@ -3223,7 +3233,7 @@ void alternating()
  800148a:	3302      	adds	r3, #2
  800148c:	2200      	movs	r2, #0
  800148e:	701a      	strb	r2, [r3, #0]
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
  8001490:	1dfb      	adds	r3, r7, #7
  8001492:	781a      	ldrb	r2, [r3, #0]
  8001494:	4b4f      	ldr	r3, [pc, #316]	@ (80015d4 <alternating+0x16c>)
@@ -3232,11 +3242,11 @@ void alternating()
  800149a:	0092      	lsls	r2, r2, #2
  800149c:	52d1      	strh	r1, [r2, r3]
 
-			gpioNotReset = false;
+			g_gpioNotReset = false;
  800149e:	4b4b      	ldr	r3, [pc, #300]	@ (80015cc <alternating+0x164>)
  80014a0:	2200      	movs	r2, #0
  80014a2:	701a      	strb	r2, [r3, #0]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  80014a4:	1dfb      	adds	r3, r7, #7
  80014a6:	781a      	ldrb	r2, [r3, #0]
  80014a8:	1dfb      	adds	r3, r7, #7
@@ -3251,7 +3261,7 @@ void alternating()
 		}
 	}
 
-	switch(patternStep)
+	switch(g_patternStep)
  80014ba:	4b48      	ldr	r3, [pc, #288]	@ (80015dc <alternating+0x174>)
  80014bc:	781b      	ldrb	r3, [r3, #0]
  80014be:	b2db      	uxtb	r3, r3
@@ -3260,7 +3270,7 @@ void alternating()
  80014c4:	2b01      	cmp	r3, #1
  80014c6:	d046      	beq.n	8001556 <alternating+0xee>
 				startTime = HAL_GetTick();
-				patternStep = 0;
+				g_patternStep = 0;
 			}
 			break;
 	}
@@ -3276,7 +3286,7 @@ void alternating()
  80014d8:	005b      	lsls	r3, r3, #1
  80014da:	429a      	cmp	r2, r3
  80014dc:	d36e      	bcc.n	80015bc <alternating+0x154>
-				for (uint8_t i = 0; i < numLeds; i += 2)
+				for (uint8_t i = 0; i < g_numLeds; i += 2)
  80014de:	1dbb      	adds	r3, r7, #6
  80014e0:	2200      	movs	r2, #0
  80014e2:	701a      	strb	r2, [r3, #0]
@@ -3290,7 +3300,7 @@ void alternating()
  80014f0:	3302      	adds	r3, #2
  80014f2:	2201      	movs	r2, #1
  80014f4:	701a      	strb	r2, [r3, #0]
-					ledArr[i].duty = defaultDuty;
+					ledArr[i].duty = g_defaultDuty;
  80014f6:	1dbb      	adds	r3, r7, #6
  80014f8:	781a      	ldrb	r2, [r3, #0]
  80014fa:	4b36      	ldr	r3, [pc, #216]	@ (80015d4 <alternating+0x16c>)
@@ -3308,7 +3318,7 @@ void alternating()
  8001510:	3302      	adds	r3, #2
  8001512:	2200      	movs	r2, #0
  8001514:	701a      	strb	r2, [r3, #0]
-					ledArr[i+1].duty = defaultDuty;
+					ledArr[i+1].duty = g_defaultDuty;
  8001516:	1dbb      	adds	r3, r7, #6
  8001518:	781b      	ldrb	r3, [r3, #0]
  800151a:	1c5a      	adds	r2, r3, #1
@@ -3317,7 +3327,7 @@ void alternating()
  8001520:	4b2b      	ldr	r3, [pc, #172]	@ (80015d0 <alternating+0x168>)
  8001522:	0092      	lsls	r2, r2, #2
  8001524:	52d1      	strh	r1, [r2, r3]
-				for (uint8_t i = 0; i < numLeds; i += 2)
+				for (uint8_t i = 0; i < g_numLeds; i += 2)
  8001526:	1dbb      	adds	r3, r7, #6
  8001528:	1dba      	adds	r2, r7, #6
  800152a:	7812      	ldrb	r2, [r2, #0]
@@ -3334,7 +3344,7 @@ void alternating()
  8001540:	0002      	movs	r2, r0
  8001542:	4b27      	ldr	r3, [pc, #156]	@ (80015e0 <alternating+0x178>)
  8001544:	601a      	str	r2, [r3, #0]
-				patternStep++;
+				g_patternStep++;
  8001546:	4b25      	ldr	r3, [pc, #148]	@ (80015dc <alternating+0x174>)
  8001548:	781b      	ldrb	r3, [r3, #0]
  800154a:	b2db      	uxtb	r3, r3
@@ -3354,7 +3364,7 @@ void alternating()
  8001564:	005b      	lsls	r3, r3, #1
  8001566:	429a      	cmp	r2, r3
  8001568:	d32a      	bcc.n	80015c0 <alternating+0x158>
-				for (uint8_t i = 0; i < numLeds; i += 2)
+				for (uint8_t i = 0; i < g_numLeds; i += 2)
  800156a:	1d7b      	adds	r3, r7, #5
  800156c:	2200      	movs	r2, #0
  800156e:	701a      	strb	r2, [r3, #0]
@@ -3378,7 +3388,7 @@ void alternating()
  800158e:	3302      	adds	r3, #2
  8001590:	2201      	movs	r2, #1
  8001592:	701a      	strb	r2, [r3, #0]
-				for (uint8_t i = 0; i < numLeds; i += 2)
+				for (uint8_t i = 0; i < g_numLeds; i += 2)
  8001594:	1d7b      	adds	r3, r7, #5
  8001596:	1d7a      	adds	r2, r7, #5
  8001598:	7812      	ldrb	r2, [r2, #0]
@@ -3395,7 +3405,7 @@ void alternating()
  80015ae:	0002      	movs	r2, r0
  80015b0:	4b0b      	ldr	r3, [pc, #44]	@ (80015e0 <alternating+0x178>)
  80015b2:	601a      	str	r2, [r3, #0]
-				patternStep = 0;
+				g_patternStep = 0;
  80015b4:	4b09      	ldr	r3, [pc, #36]	@ (80015dc <alternating+0x174>)
  80015b6:	2200      	movs	r2, #0
  80015b8:	701a      	strb	r2, [r3, #0]
@@ -3428,14 +3438,14 @@ void groupedLedChaser()
  80015e8:	af00      	add	r7, sp, #0
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
  80015ea:	4b4b      	ldr	r3, [pc, #300]	@ (8001718 <groupedLedChaser+0x134>)
  80015ec:	781b      	ldrb	r3, [r3, #0]
  80015ee:	b2db      	uxtb	r3, r3
  80015f0:	2b00      	cmp	r3, #0
  80015f2:	d020      	beq.n	8001636 <groupedLedChaser+0x52>
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  80015f4:	1dfb      	adds	r3, r7, #7
  80015f6:	2200      	movs	r2, #0
  80015f8:	701a      	strb	r2, [r3, #0]
@@ -3450,7 +3460,7 @@ void groupedLedChaser()
  8001606:	3302      	adds	r3, #2
  8001608:	2200      	movs	r2, #0
  800160a:	701a      	strb	r2, [r3, #0]
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
  800160c:	1dfb      	adds	r3, r7, #7
  800160e:	781a      	ldrb	r2, [r3, #0]
  8001610:	4b43      	ldr	r3, [pc, #268]	@ (8001720 <groupedLedChaser+0x13c>)
@@ -3458,7 +3468,7 @@ void groupedLedChaser()
  8001614:	4b41      	ldr	r3, [pc, #260]	@ (800171c <groupedLedChaser+0x138>)
  8001616:	0092      	lsls	r2, r2, #2
  8001618:	52d1      	strh	r1, [r2, r3]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  800161a:	1dfb      	adds	r3, r7, #7
  800161c:	781a      	ldrb	r2, [r3, #0]
  800161e:	1dfb      	adds	r3, r7, #7
@@ -3472,7 +3482,7 @@ void groupedLedChaser()
  800162e:	d3e5      	bcc.n	80015fc <groupedLedChaser+0x18>
 		}
 
-		gpioNotReset = false;
+		g_gpioNotReset = false;
  8001630:	4b39      	ldr	r3, [pc, #228]	@ (8001718 <groupedLedChaser+0x134>)
  8001632:	2200      	movs	r2, #0
  8001634:	701a      	strb	r2, [r3, #0]
@@ -3496,7 +3506,7 @@ void groupedLedChaser()
  8001650:	d35d      	bcc.n	800170e <groupedLedChaser+0x12a>
 	{
 		// Turn all LEDs off first
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001652:	1dbb      	adds	r3, r7, #6
  8001654:	2200      	movs	r2, #0
  8001656:	701a      	strb	r2, [r3, #0]
@@ -3511,7 +3521,7 @@ void groupedLedChaser()
  8001664:	3302      	adds	r3, #2
  8001666:	2200      	movs	r2, #0
  8001668:	701a      	strb	r2, [r3, #0]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  800166a:	1dbb      	adds	r3, r7, #6
  800166c:	781a      	ldrb	r2, [r3, #0]
  800166e:	1dbb      	adds	r3, r7, #6
@@ -3526,7 +3536,7 @@ void groupedLedChaser()
 		}
 
 		// Turn on the current group of 3
-		uint8_t startLed = patternStep * 3;
+		uint8_t startLed = g_patternStep * 3;
  8001680:	4b2a      	ldr	r3, [pc, #168]	@ (800172c <groupedLedChaser+0x148>)
  8001682:	781b      	ldrb	r3, [r3, #0]
  8001684:	b2db      	uxtb	r3, r3
@@ -3555,7 +3565,7 @@ void groupedLedChaser()
  80016aa:	3302      	adds	r3, #2
  80016ac:	2201      	movs	r2, #1
  80016ae:	701a      	strb	r2, [r3, #0]
-			ledArr[startLed + i].duty = defaultDuty;
+			ledArr[startLed + i].duty = g_defaultDuty;
  80016b0:	1c7b      	adds	r3, r7, #1
  80016b2:	781a      	ldrb	r2, [r3, #0]
  80016b4:	1d7b      	adds	r3, r7, #5
@@ -3585,7 +3595,7 @@ void groupedLedChaser()
  80016de:	601a      	str	r2, [r3, #0]
 
 		// Move to next group
-		patternStep++;
+		g_patternStep++;
  80016e0:	4b12      	ldr	r3, [pc, #72]	@ (800172c <groupedLedChaser+0x148>)
  80016e2:	781b      	ldrb	r3, [r3, #0]
  80016e4:	b2db      	uxtb	r3, r3
@@ -3595,7 +3605,7 @@ void groupedLedChaser()
  80016ec:	701a      	strb	r2, [r3, #0]
 
 		// 4 groups: 1-3, 4-6, 7-9, 10-12
-		if (patternStep >= numLeds / 3)
+		if (g_patternStep >= g_numLeds / 3)
  80016ee:	4b0d      	ldr	r3, [pc, #52]	@ (8001724 <groupedLedChaser+0x140>)
  80016f0:	781b      	ldrb	r3, [r3, #0]
  80016f2:	2103      	movs	r1, #3
@@ -3609,7 +3619,7 @@ void groupedLedChaser()
  8001704:	429a      	cmp	r2, r3
  8001706:	d802      	bhi.n	800170e <groupedLedChaser+0x12a>
 		{
-			patternStep = 0;
+			g_patternStep = 0;
  8001708:	4b08      	ldr	r3, [pc, #32]	@ (800172c <groupedLedChaser+0x148>)
  800170a:	2200      	movs	r2, #0
  800170c:	701a      	strb	r2, [r3, #0]
@@ -3637,14 +3647,14 @@ void breathing()
  8001734:	af00      	add	r7, sp, #0
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
  8001736:	4b4e      	ldr	r3, [pc, #312]	@ (8001870 <breathing+0x140>)
  8001738:	781b      	ldrb	r3, [r3, #0]
  800173a:	b2db      	uxtb	r3, r3
  800173c:	2b00      	cmp	r3, #0
  800173e:	d022      	beq.n	8001786 <breathing+0x56>
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001740:	1dfb      	adds	r3, r7, #7
  8001742:	2200      	movs	r2, #0
  8001744:	701a      	strb	r2, [r3, #0]
@@ -3666,7 +3676,7 @@ void breathing()
  800175e:	0092      	lsls	r2, r2, #2
  8001760:	2100      	movs	r1, #0
  8001762:	52d1      	strh	r1, [r2, r3]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001764:	1dfb      	adds	r3, r7, #7
  8001766:	781a      	ldrb	r2, [r3, #0]
  8001768:	1dfb      	adds	r3, r7, #7
@@ -3680,11 +3690,11 @@ void breathing()
  8001778:	d3e6      	bcc.n	8001748 <breathing+0x18>
 		}
 
-		gpioNotReset = false;
+		g_gpioNotReset = false;
  800177a:	4b3d      	ldr	r3, [pc, #244]	@ (8001870 <breathing+0x140>)
  800177c:	2200      	movs	r2, #0
  800177e:	701a      	strb	r2, [r3, #0]
-		patternStep = 0;
+		g_patternStep = 0;
  8001780:	4b3e      	ldr	r3, [pc, #248]	@ (800187c <breathing+0x14c>)
  8001782:	2200      	movs	r2, #0
  8001784:	701a      	strb	r2, [r3, #0]
@@ -3706,7 +3716,7 @@ void breathing()
  800179c:	429a      	cmp	r2, r3
  800179e:	d362      	bcc.n	8001866 <breathing+0x136>
 	{
-		switch (patternStep)
+		switch (g_patternStep)
  80017a0:	4b36      	ldr	r3, [pc, #216]	@ (800187c <breathing+0x14c>)
  80017a2:	781b      	ldrb	r3, [r3, #0]
  80017a4:	b2db      	uxtb	r3, r3
@@ -3718,7 +3728,7 @@ void breathing()
 		{
 			// Increasing brightness
 			case 0:
-				for (uint8_t i = 0; i < numLeds; i++)
+				for (uint8_t i = 0; i < g_numLeds; i++)
  80017b0:	1dbb      	adds	r3, r7, #6
  80017b2:	2200      	movs	r2, #0
  80017b4:	701a      	strb	r2, [r3, #0]
@@ -3737,7 +3747,7 @@ void breathing()
  80017ca:	009b      	lsls	r3, r3, #2
  80017cc:	5299      	strh	r1, [r3, r2]
 
-					if (ledArr[i].duty >= stepRes)
+					if (ledArr[i].duty >= g_stepRes)
  80017ce:	1dbb      	adds	r3, r7, #6
  80017d0:	781a      	ldrb	r2, [r3, #0]
  80017d2:	4b28      	ldr	r3, [pc, #160]	@ (8001874 <breathing+0x144>)
@@ -3749,7 +3759,7 @@ void breathing()
  80017de:	429a      	cmp	r2, r3
  80017e0:	d309      	bcc.n	80017f6 <breathing+0xc6>
 					{
-						ledArr[i].duty = stepRes;
+						ledArr[i].duty = g_stepRes;
  80017e2:	1dbb      	adds	r3, r7, #6
  80017e4:	781a      	ldrb	r2, [r3, #0]
  80017e6:	4b27      	ldr	r3, [pc, #156]	@ (8001884 <breathing+0x154>)
@@ -3757,11 +3767,11 @@ void breathing()
  80017ea:	4b22      	ldr	r3, [pc, #136]	@ (8001874 <breathing+0x144>)
  80017ec:	0092      	lsls	r2, r2, #2
  80017ee:	52d1      	strh	r1, [r2, r3]
-						patternStep = 1;
+						g_patternStep = 1;
  80017f0:	4b22      	ldr	r3, [pc, #136]	@ (800187c <breathing+0x14c>)
  80017f2:	2201      	movs	r2, #1
  80017f4:	701a      	strb	r2, [r3, #0]
-				for (uint8_t i = 0; i < numLeds; i++)
+				for (uint8_t i = 0; i < g_numLeds; i++)
  80017f6:	1dbb      	adds	r3, r7, #6
  80017f8:	781a      	ldrb	r2, [r3, #0]
  80017fa:	1dbb      	adds	r3, r7, #6
@@ -3780,7 +3790,7 @@ void breathing()
 
 			// Decreasing brightness
 			case 1:
-				for (uint8_t i = 0; i < numLeds; i++)
+				for (uint8_t i = 0; i < g_numLeds; i++)
  800180e:	1d7b      	adds	r3, r7, #5
  8001810:	2200      	movs	r2, #0
  8001812:	701a      	strb	r2, [r3, #0]
@@ -3812,11 +3822,11 @@ void breathing()
 					}
 					else
 					{
-						patternStep = 0;
+						g_patternStep = 0;
  800183e:	4b0f      	ldr	r3, [pc, #60]	@ (800187c <breathing+0x14c>)
  8001840:	2200      	movs	r2, #0
  8001842:	701a      	strb	r2, [r3, #0]
-				for (uint8_t i = 0; i < numLeds; i++)
+				for (uint8_t i = 0; i < g_numLeds; i++)
  8001844:	1d7b      	adds	r3, r7, #5
  8001846:	781a      	ldrb	r2, [r3, #0]
  8001848:	1d7b      	adds	r3, r7, #5
@@ -3862,14 +3872,14 @@ void comet()
  800188c:	af00      	add	r7, sp, #0
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
  800188e:	4b80      	ldr	r3, [pc, #512]	@ (8001a90 <comet+0x208>)
  8001890:	781b      	ldrb	r3, [r3, #0]
  8001892:	b2db      	uxtb	r3, r3
  8001894:	2b00      	cmp	r3, #0
  8001896:	d023      	beq.n	80018e0 <comet+0x58>
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001898:	1dfb      	adds	r3, r7, #7
  800189a:	2200      	movs	r2, #0
  800189c:	701a      	strb	r2, [r3, #0]
@@ -3884,7 +3894,7 @@ void comet()
  80018aa:	3302      	adds	r3, #2
  80018ac:	2200      	movs	r2, #0
  80018ae:	701a      	strb	r2, [r3, #0]
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
  80018b0:	1dfb      	adds	r3, r7, #7
  80018b2:	781a      	ldrb	r2, [r3, #0]
  80018b4:	4b78      	ldr	r3, [pc, #480]	@ (8001a98 <comet+0x210>)
@@ -3892,7 +3902,7 @@ void comet()
  80018b8:	4b76      	ldr	r3, [pc, #472]	@ (8001a94 <comet+0x20c>)
  80018ba:	0092      	lsls	r2, r2, #2
  80018bc:	52d1      	strh	r1, [r2, r3]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  80018be:	1dfb      	adds	r3, r7, #7
  80018c0:	781a      	ldrb	r2, [r3, #0]
  80018c2:	1dfb      	adds	r3, r7, #7
@@ -3906,11 +3916,11 @@ void comet()
  80018d2:	d3e5      	bcc.n	80018a0 <comet+0x18>
 		}
 
-		gpioNotReset = false;
+		g_gpioNotReset = false;
  80018d4:	4b6e      	ldr	r3, [pc, #440]	@ (8001a90 <comet+0x208>)
  80018d6:	2200      	movs	r2, #0
  80018d8:	701a      	strb	r2, [r3, #0]
-		patternStep = 0;
+		g_patternStep = 0;
  80018da:	4b71      	ldr	r3, [pc, #452]	@ (8001aa0 <comet+0x218>)
  80018dc:	2200      	movs	r2, #0
  80018de:	701a      	strb	r2, [r3, #0]
@@ -3934,7 +3944,7 @@ void comet()
  80018fa:	e0c5      	b.n	8001a88 <comet+0x200>
 	{
 		// Turn all LEDs off
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  80018fc:	1dbb      	adds	r3, r7, #6
  80018fe:	2200      	movs	r2, #0
  8001900:	701a      	strb	r2, [r3, #0]
@@ -3949,7 +3959,7 @@ void comet()
  800190e:	3302      	adds	r3, #2
  8001910:	2200      	movs	r2, #0
  8001912:	701a      	strb	r2, [r3, #0]
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
  8001914:	1dbb      	adds	r3, r7, #6
  8001916:	781a      	ldrb	r2, [r3, #0]
  8001918:	4b5f      	ldr	r3, [pc, #380]	@ (8001a98 <comet+0x210>)
@@ -3957,7 +3967,7 @@ void comet()
  800191c:	4b5d      	ldr	r3, [pc, #372]	@ (8001a94 <comet+0x20c>)
  800191e:	0092      	lsls	r2, r2, #2
  8001920:	52d1      	strh	r1, [r2, r3]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001922:	1dbb      	adds	r3, r7, #6
  8001924:	781a      	ldrb	r2, [r3, #0]
  8001926:	1dbb      	adds	r3, r7, #6
@@ -3972,7 +3982,7 @@ void comet()
 		}
 
 		// Current LED
-		uint8_t head = patternStep;
+		uint8_t head = g_patternStep;
  8001938:	1cfb      	adds	r3, r7, #3
  800193a:	4a59      	ldr	r2, [pc, #356]	@ (8001aa0 <comet+0x218>)
  800193c:	7812      	ldrb	r2, [r2, #0]
@@ -3988,7 +3998,7 @@ void comet()
  800194a:	3302      	adds	r3, #2
  800194c:	2201      	movs	r2, #1
  800194e:	701a      	strb	r2, [r3, #0]
-		ledArr[head].duty = defaultDuty * 5;
+		ledArr[head].duty = g_defaultDuty * 5;
  8001950:	4b51      	ldr	r3, [pc, #324]	@ (8001a98 <comet+0x210>)
  8001952:	8819      	ldrh	r1, [r3, #0]
  8001954:	1cfb      	adds	r3, r7, #3
@@ -4003,7 +4013,7 @@ void comet()
  8001966:	52d1      	strh	r1, [r2, r3]
 
 		// Tail - medium brightness
-		ledArr[(head + numLeds - 1) % numLeds].enabled = true;
+		ledArr[(head + g_numLeds - 1) % g_numLeds].enabled = true;
  8001968:	1cfb      	adds	r3, r7, #3
  800196a:	781b      	ldrb	r3, [r3, #0]
  800196c:	4a4b      	ldr	r2, [pc, #300]	@ (8001a9c <comet+0x214>)
@@ -4022,7 +4032,7 @@ void comet()
  8001988:	3302      	adds	r3, #2
  800198a:	2201      	movs	r2, #1
  800198c:	701a      	strb	r2, [r3, #0]
-		ledArr[(head + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+		ledArr[(head + g_numLeds - 1) % g_numLeds].duty = g_defaultDuty * 3;
  800198e:	4b42      	ldr	r3, [pc, #264]	@ (8001a98 <comet+0x210>)
  8001990:	881c      	ldrh	r4, [r3, #0]
  8001992:	1cfb      	adds	r3, r7, #3
@@ -4048,7 +4058,7 @@ void comet()
  80019bc:	52d1      	strh	r1, [r2, r3]
 
 		// Tail - dimmer
-		ledArr[(head + numLeds - 2) % numLeds].enabled = true;
+		ledArr[(head + g_numLeds - 2) % g_numLeds].enabled = true;
  80019be:	1cfb      	adds	r3, r7, #3
  80019c0:	781b      	ldrb	r3, [r3, #0]
  80019c2:	4a36      	ldr	r2, [pc, #216]	@ (8001a9c <comet+0x214>)
@@ -4067,7 +4077,7 @@ void comet()
  80019de:	3302      	adds	r3, #2
  80019e0:	2201      	movs	r2, #1
  80019e2:	701a      	strb	r2, [r3, #0]
-		ledArr[(head + numLeds - 2) % numLeds].duty = defaultDuty * 2;
+		ledArr[(head + g_numLeds - 2) % g_numLeds].duty = g_defaultDuty * 2;
  80019e4:	4b2c      	ldr	r3, [pc, #176]	@ (8001a98 <comet+0x210>)
  80019e6:	881c      	ldrh	r4, [r3, #0]
  80019e8:	1cfb      	adds	r3, r7, #3
@@ -4091,7 +4101,7 @@ void comet()
  8001a0e:	52d1      	strh	r1, [r2, r3]
 
 		// Tail - dimmest
-		ledArr[(head + numLeds - 3) % numLeds].enabled = true;
+		ledArr[(head + g_numLeds - 3) % g_numLeds].enabled = true;
  8001a10:	1cfb      	adds	r3, r7, #3
  8001a12:	781b      	ldrb	r3, [r3, #0]
  8001a14:	4a21      	ldr	r2, [pc, #132]	@ (8001a9c <comet+0x214>)
@@ -4110,7 +4120,7 @@ void comet()
  8001a30:	3302      	adds	r3, #2
  8001a32:	2201      	movs	r2, #1
  8001a34:	701a      	strb	r2, [r3, #0]
-		ledArr[(head + numLeds - 3) % numLeds].duty = defaultDuty;
+		ledArr[(head + g_numLeds - 3) % g_numLeds].duty = g_defaultDuty;
  8001a36:	1cfb      	adds	r3, r7, #3
  8001a38:	781b      	ldrb	r3, [r3, #0]
  8001a3a:	4a18      	ldr	r2, [pc, #96]	@ (8001a9c <comet+0x214>)
@@ -4131,7 +4141,7 @@ void comet()
  8001a5a:	52d1      	strh	r1, [r2, r3]
 
 		// Move comet
-		patternStep++;
+		g_patternStep++;
  8001a5c:	4b10      	ldr	r3, [pc, #64]	@ (8001aa0 <comet+0x218>)
  8001a5e:	781b      	ldrb	r3, [r3, #0]
  8001a60:	b2db      	uxtb	r3, r3
@@ -4140,7 +4150,7 @@ void comet()
  8001a66:	4b0e      	ldr	r3, [pc, #56]	@ (8001aa0 <comet+0x218>)
  8001a68:	701a      	strb	r2, [r3, #0]
 
-		if (patternStep >= numLeds)
+		if (g_patternStep >= g_numLeds)
  8001a6a:	4b0d      	ldr	r3, [pc, #52]	@ (8001aa0 <comet+0x218>)
  8001a6c:	781b      	ldrb	r3, [r3, #0]
  8001a6e:	b2da      	uxtb	r2, r3
@@ -4149,7 +4159,7 @@ void comet()
  8001a74:	429a      	cmp	r2, r3
  8001a76:	d302      	bcc.n	8001a7e <comet+0x1f6>
 		{
-			patternStep = 0;
+			g_patternStep = 0;
  8001a78:	4b09      	ldr	r3, [pc, #36]	@ (8001aa0 <comet+0x218>)
  8001a7a:	2200      	movs	r2, #0
  8001a7c:	701a      	strb	r2, [r3, #0]
@@ -4190,14 +4200,14 @@ void meteorShower()
  8001ab0:	2278      	movs	r2, #120	@ 0x78
  8001ab2:	801a      	strh	r2, [r3, #0]
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
  8001ab4:	4bdf      	ldr	r3, [pc, #892]	@ (8001e34 <meteorShower+0x38c>)
  8001ab6:	781b      	ldrb	r3, [r3, #0]
  8001ab8:	b2db      	uxtb	r3, r3
  8001aba:	2b00      	cmp	r3, #0
  8001abc:	d02c      	beq.n	8001b18 <meteorShower+0x70>
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001abe:	1dfb      	adds	r3, r7, #7
  8001ac0:	2200      	movs	r2, #0
  8001ac2:	701a      	strb	r2, [r3, #0]
@@ -4212,7 +4222,7 @@ void meteorShower()
  8001ad0:	3302      	adds	r3, #2
  8001ad2:	2200      	movs	r2, #0
  8001ad4:	701a      	strb	r2, [r3, #0]
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
  8001ad6:	1dfb      	adds	r3, r7, #7
  8001ad8:	781a      	ldrb	r2, [r3, #0]
  8001ada:	4bd8      	ldr	r3, [pc, #864]	@ (8001e3c <meteorShower+0x394>)
@@ -4220,7 +4230,7 @@ void meteorShower()
  8001ade:	4bd6      	ldr	r3, [pc, #856]	@ (8001e38 <meteorShower+0x390>)
  8001ae0:	0092      	lsls	r2, r2, #2
  8001ae2:	52d1      	strh	r1, [r2, r3]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001ae4:	1dfb      	adds	r3, r7, #7
  8001ae6:	781a      	ldrb	r2, [r3, #0]
  8001ae8:	1dfb      	adds	r3, r7, #7
@@ -4247,11 +4257,11 @@ void meteorShower()
  8001b08:	2209      	movs	r2, #9
  8001b0a:	701a      	strb	r2, [r3, #0]
 
-		patternStep = 0;
+		g_patternStep = 0;
  8001b0c:	4bd0      	ldr	r3, [pc, #832]	@ (8001e50 <meteorShower+0x3a8>)
  8001b0e:	2200      	movs	r2, #0
  8001b10:	701a      	strb	r2, [r3, #0]
-		gpioNotReset = false;
+		g_gpioNotReset = false;
  8001b12:	4bc8      	ldr	r3, [pc, #800]	@ (8001e34 <meteorShower+0x38c>)
  8001b14:	2200      	movs	r2, #0
  8001b16:	701a      	strb	r2, [r3, #0]
@@ -4270,7 +4280,7 @@ void meteorShower()
  8001b2c:	e17e      	b.n	8001e2c <meteorShower+0x384>
 	{
 		// Turn everything off
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001b2e:	1dbb      	adds	r3, r7, #6
  8001b30:	2200      	movs	r2, #0
  8001b32:	701a      	strb	r2, [r3, #0]
@@ -4285,7 +4295,7 @@ void meteorShower()
  8001b40:	3302      	adds	r3, #2
  8001b42:	2200      	movs	r2, #0
  8001b44:	701a      	strb	r2, [r3, #0]
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
  8001b46:	1dbb      	adds	r3, r7, #6
  8001b48:	781a      	ldrb	r2, [r3, #0]
  8001b4a:	4bbc      	ldr	r3, [pc, #752]	@ (8001e3c <meteorShower+0x394>)
@@ -4293,7 +4303,7 @@ void meteorShower()
  8001b4e:	4bba      	ldr	r3, [pc, #744]	@ (8001e38 <meteorShower+0x390>)
  8001b50:	0092      	lsls	r2, r2, #2
  8001b52:	52d1      	strh	r1, [r2, r3]
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
  8001b54:	1dbb      	adds	r3, r7, #6
  8001b56:	781a      	ldrb	r2, [r3, #0]
  8001b58:	1dbb      	adds	r3, r7, #6
@@ -4317,7 +4327,7 @@ void meteorShower()
  8001b74:	3302      	adds	r3, #2
  8001b76:	2201      	movs	r2, #1
  8001b78:	701a      	strb	r2, [r3, #0]
-		ledArr[head1].duty = stepRes;
+		ledArr[head1].duty = g_stepRes;
  8001b7a:	4bb2      	ldr	r3, [pc, #712]	@ (8001e44 <meteorShower+0x39c>)
  8001b7c:	781b      	ldrb	r3, [r3, #0]
  8001b7e:	001a      	movs	r2, r3
@@ -4327,7 +4337,7 @@ void meteorShower()
  8001b86:	0092      	lsls	r2, r2, #2
  8001b88:	52d1      	strh	r1, [r2, r3]
 
-		ledArr[(head1 + numLeds - 1) % numLeds].enabled = true;
+		ledArr[(head1 + g_numLeds - 1) % g_numLeds].enabled = true;
  8001b8a:	4bae      	ldr	r3, [pc, #696]	@ (8001e44 <meteorShower+0x39c>)
  8001b8c:	781b      	ldrb	r3, [r3, #0]
  8001b8e:	001a      	movs	r2, r3
@@ -4347,7 +4357,7 @@ void meteorShower()
  8001bac:	3302      	adds	r3, #2
  8001bae:	2201      	movs	r2, #1
  8001bb0:	701a      	strb	r2, [r3, #0]
-		ledArr[(head1 + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+		ledArr[(head1 + g_numLeds - 1) % g_numLeds].duty = g_defaultDuty * 3;
  8001bb2:	4ba2      	ldr	r3, [pc, #648]	@ (8001e3c <meteorShower+0x394>)
  8001bb4:	881c      	ldrh	r4, [r3, #0]
  8001bb6:	4ba3      	ldr	r3, [pc, #652]	@ (8001e44 <meteorShower+0x39c>)
@@ -4373,7 +4383,7 @@ void meteorShower()
  8001be0:	0082      	lsls	r2, r0, #2
  8001be2:	52d1      	strh	r1, [r2, r3]
 
-		ledArr[(head1 + numLeds - 2) % numLeds].enabled = true;
+		ledArr[(head1 + g_numLeds - 2) % g_numLeds].enabled = true;
  8001be4:	4b97      	ldr	r3, [pc, #604]	@ (8001e44 <meteorShower+0x39c>)
  8001be6:	781b      	ldrb	r3, [r3, #0]
  8001be8:	001a      	movs	r2, r3
@@ -4393,7 +4403,7 @@ void meteorShower()
  8001c06:	3302      	adds	r3, #2
  8001c08:	2201      	movs	r2, #1
  8001c0a:	701a      	strb	r2, [r3, #0]
-		ledArr[(head1 + numLeds - 2) % numLeds].duty = defaultDuty;
+		ledArr[(head1 + g_numLeds - 2) % g_numLeds].duty = g_defaultDuty;
  8001c0c:	4b8d      	ldr	r3, [pc, #564]	@ (8001e44 <meteorShower+0x39c>)
  8001c0e:	781b      	ldrb	r3, [r3, #0]
  8001c10:	001a      	movs	r2, r3
@@ -4424,7 +4434,7 @@ void meteorShower()
  8001c3e:	3302      	adds	r3, #2
  8001c40:	2201      	movs	r2, #1
  8001c42:	701a      	strb	r2, [r3, #0]
-		ledArr[head2].duty = stepRes;
+		ledArr[head2].duty = g_stepRes;
  8001c44:	4b80      	ldr	r3, [pc, #512]	@ (8001e48 <meteorShower+0x3a0>)
  8001c46:	781b      	ldrb	r3, [r3, #0]
  8001c48:	001a      	movs	r2, r3
@@ -4434,7 +4444,7 @@ void meteorShower()
  8001c50:	0092      	lsls	r2, r2, #2
  8001c52:	52d1      	strh	r1, [r2, r3]
 
-		ledArr[(head2 + numLeds - 1) % numLeds].enabled = true;
+		ledArr[(head2 + g_numLeds - 1) % g_numLeds].enabled = true;
  8001c54:	4b7c      	ldr	r3, [pc, #496]	@ (8001e48 <meteorShower+0x3a0>)
  8001c56:	781b      	ldrb	r3, [r3, #0]
  8001c58:	001a      	movs	r2, r3
@@ -4454,7 +4464,7 @@ void meteorShower()
  8001c76:	3302      	adds	r3, #2
  8001c78:	2201      	movs	r2, #1
  8001c7a:	701a      	strb	r2, [r3, #0]
-		ledArr[(head2 + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+		ledArr[(head2 + g_numLeds - 1) % g_numLeds].duty = g_defaultDuty * 3;
  8001c7c:	4b6f      	ldr	r3, [pc, #444]	@ (8001e3c <meteorShower+0x394>)
  8001c7e:	881c      	ldrh	r4, [r3, #0]
  8001c80:	4b71      	ldr	r3, [pc, #452]	@ (8001e48 <meteorShower+0x3a0>)
@@ -4480,7 +4490,7 @@ void meteorShower()
  8001caa:	0082      	lsls	r2, r0, #2
  8001cac:	52d1      	strh	r1, [r2, r3]
 
-		ledArr[(head2 + numLeds - 2) % numLeds].enabled = true;
+		ledArr[(head2 + g_numLeds - 2) % g_numLeds].enabled = true;
  8001cae:	4b66      	ldr	r3, [pc, #408]	@ (8001e48 <meteorShower+0x3a0>)
  8001cb0:	781b      	ldrb	r3, [r3, #0]
  8001cb2:	001a      	movs	r2, r3
@@ -4500,7 +4510,7 @@ void meteorShower()
  8001cd0:	3302      	adds	r3, #2
  8001cd2:	2201      	movs	r2, #1
  8001cd4:	701a      	strb	r2, [r3, #0]
-		ledArr[(head2 + numLeds - 2) % numLeds].duty = defaultDuty;
+		ledArr[(head2 + g_numLeds - 2) % g_numLeds].duty = g_defaultDuty;
  8001cd6:	4b5c      	ldr	r3, [pc, #368]	@ (8001e48 <meteorShower+0x3a0>)
  8001cd8:	781b      	ldrb	r3, [r3, #0]
  8001cda:	001a      	movs	r2, r3
@@ -4531,7 +4541,7 @@ void meteorShower()
  8001d08:	3302      	adds	r3, #2
  8001d0a:	2201      	movs	r2, #1
  8001d0c:	701a      	strb	r2, [r3, #0]
-		ledArr[head3].duty = stepRes;
+		ledArr[head3].duty = g_stepRes;
  8001d0e:	4b4f      	ldr	r3, [pc, #316]	@ (8001e4c <meteorShower+0x3a4>)
  8001d10:	781b      	ldrb	r3, [r3, #0]
  8001d12:	001a      	movs	r2, r3
@@ -4541,7 +4551,7 @@ void meteorShower()
  8001d1a:	0092      	lsls	r2, r2, #2
  8001d1c:	52d1      	strh	r1, [r2, r3]
 
-		ledArr[(head3 + numLeds - 1) % numLeds].enabled = true;
+		ledArr[(head3 + g_numLeds - 1) % g_numLeds].enabled = true;
  8001d1e:	4b4b      	ldr	r3, [pc, #300]	@ (8001e4c <meteorShower+0x3a4>)
  8001d20:	781b      	ldrb	r3, [r3, #0]
  8001d22:	001a      	movs	r2, r3
@@ -4561,7 +4571,7 @@ void meteorShower()
  8001d40:	3302      	adds	r3, #2
  8001d42:	2201      	movs	r2, #1
  8001d44:	701a      	strb	r2, [r3, #0]
-		ledArr[(head3 + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+		ledArr[(head3 + g_numLeds - 1) % g_numLeds].duty = g_defaultDuty * 3;
  8001d46:	4b3d      	ldr	r3, [pc, #244]	@ (8001e3c <meteorShower+0x394>)
  8001d48:	881c      	ldrh	r4, [r3, #0]
  8001d4a:	4b40      	ldr	r3, [pc, #256]	@ (8001e4c <meteorShower+0x3a4>)
@@ -4587,7 +4597,7 @@ void meteorShower()
  8001d74:	0082      	lsls	r2, r0, #2
  8001d76:	52d1      	strh	r1, [r2, r3]
 
-		ledArr[(head3 + numLeds - 2) % numLeds].enabled = true;
+		ledArr[(head3 + g_numLeds - 2) % g_numLeds].enabled = true;
  8001d78:	4b34      	ldr	r3, [pc, #208]	@ (8001e4c <meteorShower+0x3a4>)
  8001d7a:	781b      	ldrb	r3, [r3, #0]
  8001d7c:	001a      	movs	r2, r3
@@ -4607,7 +4617,7 @@ void meteorShower()
  8001d9a:	3302      	adds	r3, #2
  8001d9c:	2201      	movs	r2, #1
  8001d9e:	701a      	strb	r2, [r3, #0]
-		ledArr[(head3 + numLeds - 2) % numLeds].duty = defaultDuty;
+		ledArr[(head3 + g_numLeds - 2) % g_numLeds].duty = g_defaultDuty;
  8001da0:	4b2a      	ldr	r3, [pc, #168]	@ (8001e4c <meteorShower+0x3a4>)
  8001da2:	781b      	ldrb	r3, [r3, #0]
  8001da4:	001a      	movs	r2, r3
@@ -4652,7 +4662,7 @@ void meteorShower()
  8001dea:	701a      	strb	r2, [r3, #0]
 
 		// Wrap around
-		if (head1 >= numLeds)
+		if (head1 >= g_numLeds)
  8001dec:	4b15      	ldr	r3, [pc, #84]	@ (8001e44 <meteorShower+0x39c>)
  8001dee:	781a      	ldrb	r2, [r3, #0]
  8001df0:	4b13      	ldr	r3, [pc, #76]	@ (8001e40 <meteorShower+0x398>)
@@ -4664,7 +4674,7 @@ void meteorShower()
  8001dfa:	2200      	movs	r2, #0
  8001dfc:	701a      	strb	r2, [r3, #0]
 
-		if (head2 >= numLeds)
+		if (head2 >= g_numLeds)
  8001dfe:	4b12      	ldr	r3, [pc, #72]	@ (8001e48 <meteorShower+0x3a0>)
  8001e00:	781a      	ldrb	r2, [r3, #0]
  8001e02:	4b0f      	ldr	r3, [pc, #60]	@ (8001e40 <meteorShower+0x398>)
@@ -4676,7 +4686,7 @@ void meteorShower()
  8001e0c:	2200      	movs	r2, #0
  8001e0e:	701a      	strb	r2, [r3, #0]
 
-		if (head3 >= numLeds)
+		if (head3 >= g_numLeds)
  8001e10:	4b0e      	ldr	r3, [pc, #56]	@ (8001e4c <meteorShower+0x3a4>)
  8001e12:	781a      	ldrb	r2, [r3, #0]
  8001e14:	4b0a      	ldr	r3, [pc, #40]	@ (8001e40 <meteorShower+0x398>)
@@ -4736,7 +4746,7 @@ void patternCycle()
  8001e78:	429a      	cmp	r2, r3
  8001e7a:	d31a      	bcc.n	8001eb2 <patternCycle+0x56>
 	{
-		// Move to next pattern
+		// Move to next g_pattern
 		currentPattern++;
  8001e7c:	4b20      	ldr	r3, [pc, #128]	@ (8001f00 <patternCycle+0xa4>)
  8001e7e:	781b      	ldrb	r3, [r3, #0]
@@ -4757,19 +4767,19 @@ void patternCycle()
  8001e94:	701a      	strb	r2, [r3, #0]
 		}
 
-		// Reset pattern state
-		patternStep = 0;
+		// Reset g_pattern state
+		g_patternStep = 0;
  8001e96:	4b1b      	ldr	r3, [pc, #108]	@ (8001f04 <patternCycle+0xa8>)
  8001e98:	2200      	movs	r2, #0
  8001e9a:	701a      	strb	r2, [r3, #0]
-		gpioNotReset = true;
+		g_gpioNotReset = true;
  8001e9c:	4b1a      	ldr	r3, [pc, #104]	@ (8001f08 <patternCycle+0xac>)
  8001e9e:	2201      	movs	r2, #1
  8001ea0:	701a      	strb	r2, [r3, #0]
 
-		// Prevent the individual pattern from being selected
-		// through the global pattern variable
-		pattern = 7;
+		// Prevent the individual g_pattern from being selected
+		// through the global g_pattern variable
+		g_pattern = 7;
  8001ea2:	4b1a      	ldr	r3, [pc, #104]	@ (8001f0c <patternCycle+0xb0>)
  8001ea4:	2207      	movs	r2, #7
  8001ea6:	701a      	strb	r2, [r3, #0]
@@ -4781,7 +4791,7 @@ void patternCycle()
  8001eb0:	601a      	str	r2, [r3, #0]
 	}
 
-	// Run current pattern
+	// Run current g_pattern
 	switch (currentPattern)
  8001eb2:	4b13      	ldr	r3, [pc, #76]	@ (8001f00 <patternCycle+0xa4>)
  8001eb4:	781b      	ldrb	r3, [r3, #0]
@@ -4917,8 +4927,8 @@ void pollButtons()
  8001f70:	701a      	strb	r2, [r3, #0]
     }
 
-    // Only reset the pattern when the selected pattern changes
-    if (newPattern != pattern)
+    // Only reset the g_pattern when the selected pattern changes
+    if (newPattern != g_pattern)
  8001f72:	4b0b      	ldr	r3, [pc, #44]	@ (8001fa0 <pollButtons+0x8c>)
  8001f74:	781b      	ldrb	r3, [r3, #0]
  8001f76:	b2db      	uxtb	r3, r3
@@ -4927,16 +4937,16 @@ void pollButtons()
  8001f7c:	429a      	cmp	r2, r3
  8001f7e:	d009      	beq.n	8001f94 <pollButtons+0x80>
     {
-        pattern = newPattern;
+        g_pattern = newPattern;
  8001f80:	4b07      	ldr	r3, [pc, #28]	@ (8001fa0 <pollButtons+0x8c>)
  8001f82:	1dfa      	adds	r2, r7, #7
  8001f84:	7812      	ldrb	r2, [r2, #0]
  8001f86:	701a      	strb	r2, [r3, #0]
-        patternStep = 0;
+        g_patternStep = 0;
  8001f88:	4b06      	ldr	r3, [pc, #24]	@ (8001fa4 <pollButtons+0x90>)
  8001f8a:	2200      	movs	r2, #0
  8001f8c:	701a      	strb	r2, [r3, #0]
-        gpioNotReset = true;
+        g_gpioNotReset = true;
  8001f8e:	4b06      	ldr	r3, [pc, #24]	@ (8001fa8 <pollButtons+0x94>)
  8001f90:	2201      	movs	r2, #1
  8001f92:	701a      	strb	r2, [r3, #0]

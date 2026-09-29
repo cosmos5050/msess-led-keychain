@@ -28,7 +28,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-// Struct for
+// Struct for storing LED info
 typedef struct
 {
 	uint16_t duty;
@@ -52,13 +52,16 @@ typedef struct
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
-volatile uint16_t tickCounter = 0;
-volatile uint8_t pattern = 0;
-uint16_t stepRes = 10;
-uint16_t defaultDuty = 1;
-uint8_t numLeds = 12;
-volatile uint8_t patternStep = 0;
-volatile bool gpioNotReset = true;
+// Timer counter for interrupt PWM
+volatile uint16_t g_tickCounter = 0;
+volatile uint8_t g_pattern = 0;
+// 10%, 20%, ..., 100%
+uint16_t g_stepRes = 10;
+// In ms, instead of duty % for less compute in interrupt cycles
+uint16_t g_defaultDuty = 1;
+uint8_t g_numLeds = 12;
+volatile uint8_t g_patternStep = 0;
+volatile bool g_gpioNotReset = true;
 
 volatile LED_t ledArr[12];
 
@@ -135,10 +138,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	// Check if pattern's changed
+	// Poll if patterns changed
 	pollButtons();
 
-	switch(pattern)
+	// Pick non-blocking pattern based of button combination
+	switch(g_pattern)
 	{
 		case 0:
 			comet();
@@ -315,69 +319,24 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-// Set bit corresponding to switch if switched on
-//void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
-//{
-//	if (GPIO_Pin == GPIO_PIN_5)
-//	{
-//		pattern |= 1;
-//	}
-//
-//	if (GPIO_Pin == GPIO_PIN_7)
-//	{
-//		pattern |= 2;
-//	}
-//
-//	if (GPIO_Pin == GPIO_PIN_1)
-//	{
-//		pattern |= 4;
-//	}
-//
-//	// Reset pattern step
-//	patternStep = 0;
-//	gpioNotReset = true;
-//}
-//
-//// Reset bit corresponding to switch if switched off
-//void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
-//{
-//	if (GPIO_Pin == GPIO_PIN_5)
-//	{
-//		pattern &= ~(1 << 0);
-//	}
-//
-//	if (GPIO_Pin == GPIO_PIN_7)
-//	{
-//		pattern &= ~(1 << 1);
-//	}
-//
-//	if (GPIO_Pin == GPIO_PIN_1)
-//	{
-//		pattern &= ~(1 << 2);
-//	}
-//
-//	// Reset pattern step
-//	patternStep = 0;
-//	gpioNotReset = true;
-//}
-
 // ISR TIM3 for LED PWM
+// Timer: Interrupt rate 1kHz, 1ms
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	// Check instance member to see if tim3 has an IRQ
 	if (htim->Instance == TIM3)
 	{
 		//Reset tick counter if reached 100%
-		if (tickCounter >= stepRes)
+		if (g_tickCounter >= g_stepRes)
 		{
-			tickCounter = 0;
+			g_tickCounter = 0;
 		}
 
 		// Cycle through LEDs
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			// If less than duty cycle set high else low
-			if ((tickCounter < ledArr[i].duty) && ledArr[i].enabled)
+			if ((g_tickCounter < ledArr[i].duty) && ledArr[i].enabled)
 			{
 				writeGPIO(i + 1, true);
 			}
@@ -387,8 +346,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 		}
 
-		// Increment tick
-		tickCounter++;
+		// Increment tick for each timer interrupt
+		g_tickCounter++;
 	}
 }
 
@@ -520,25 +479,34 @@ void writeGPIO(uint8_t ledNum, bool enabled)
 	}
 }
 
-// Helper function for sparkling to pick a new random index for one LED slot
+// Helper function for sparkling pattern to pick a new random index for LEDs
 static void reassignLedIdx(uint8_t randomLedIdx[3], uint8_t slot)
 {
 	bool notFarEnoughApart = true;
+	// Loop for checking new idx until led idxs are spaced out
 	while (notFarEnoughApart)
 	{
-		randomLedIdx[slot] = rand() % numLeds;
+		// get random num from 0-11
+		randomLedIdx[slot] = rand() % g_numLeds;
 		notFarEnoughApart = false;
 
 		for (uint8_t j = 0; j < 3; j++)
 		{
+			// Don't check idx difference for same idx
 			if (j == slot)
+			{
 				continue;
+			}
 
-			uint8_t wrapDiff = numLeds - abs(randomLedIdx[slot] - randomLedIdx[j]);
+			// Difference between new led idx and others idxs
+			uint8_t wrapDiff = g_numLeds - abs(randomLedIdx[slot] - randomLedIdx[j]);
 
-			if (wrapDiff > numLeds / 2)
-				wrapDiff = numLeds - wrapDiff;
+			if (wrapDiff > g_numLeds / 2)
+			{
+				wrapDiff = g_numLeds - wrapDiff;
+			}
 
+			// Check if difference is more than 1
 			if (wrapDiff <= 1)
 			{
 				notFarEnoughApart = true;
@@ -555,12 +523,12 @@ void sparkling()
 	static uint8_t randomLedIdx[3];
 
 	// Reset LEDs on first pattern run, and seed the initial 3 indices
-	if (gpioNotReset)
+	if (g_gpioNotReset)
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = false;
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
 		}
 
 		// Initial seed for all three slots (same spacing rule as before,
@@ -568,21 +536,21 @@ void sparkling()
 		// runs once at reset)
 		for (uint8_t i = 0; i < 3; i++)
 		{
-			randomLedIdx[i] = rand() % numLeds;
+			randomLedIdx[i] = rand() % g_numLeds;
 
 			for (uint8_t j = 0; j < i; j++)
 			{
 				bool notFarEnoughApart = true;
 				while (notFarEnoughApart)
 				{
-					uint8_t wrapDiff = numLeds - abs(randomLedIdx[i] - randomLedIdx[j]);
+					uint8_t wrapDiff = g_numLeds - abs(randomLedIdx[i] - randomLedIdx[j]);
 
-					if (wrapDiff > numLeds / 2)
-						wrapDiff = numLeds - wrapDiff;
+					if (wrapDiff > g_numLeds / 2)
+						wrapDiff = g_numLeds - wrapDiff;
 
 					if (wrapDiff <= 1)
 					{
-						randomLedIdx[i] = rand() % numLeds;
+						randomLedIdx[i] = rand() % g_numLeds;
 					}
 					else
 					{
@@ -592,30 +560,30 @@ void sparkling()
 			}
 		}
 
-		gpioNotReset = false;
+		g_gpioNotReset = false;
 		firstCycle = true;
 	}
 
 	// Delay for each brightness increase
 	uint16_t brightnessDelay = 300;
 
-	switch(patternStep)
+	switch(g_patternStep)
 	{
 		case 0:
 			if (HAL_GetTick() - startTime >= brightnessDelay)
 			{
 
 				ledArr[randomLedIdx[0]].enabled = true;
-				ledArr[randomLedIdx[0]].duty = defaultDuty;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty;
 
 				startTime = HAL_GetTick();
 				if (firstCycle)
 				{
-					patternStep += 3;
+					g_patternStep += 3;
 				}
 				else
 				{
-					patternStep++;
+					g_patternStep++;
 				}
 			}
 			break;
@@ -628,43 +596,43 @@ void sparkling()
 				reassignLedIdx(randomLedIdx, 1);
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 2:
 			if (HAL_GetTick() - startTime >= 100)
 			{
 
-				ledArr[randomLedIdx[2]].duty = defaultDuty;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 3:
 			if (HAL_GetTick() - startTime >= brightnessDelay)
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty * 2;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 4:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty;
-				ledArr[randomLedIdx[1]].enabled = defaultDuty;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty;
+				ledArr[randomLedIdx[1]].enabled = g_defaultDuty;
 
 				startTime = HAL_GetTick();
 				if (firstCycle)
 				{
-					patternStep += 2;
+					g_patternStep += 2;
 					firstCycle = false;
 				}
 				else
 				{
-					patternStep++;
+					g_patternStep++;
 				}
 			}
 			break;
@@ -676,116 +644,116 @@ void sparkling()
 				reassignLedIdx(randomLedIdx, 2);
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 6:
 			if (HAL_GetTick() - startTime >= brightnessDelay)
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty * 3;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty * 3;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 7:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty * 2;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 8:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty;
 				ledArr[randomLedIdx[2]].enabled = true;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 9:
 			if (HAL_GetTick() - startTime >= brightnessDelay)
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty * 2;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 10:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty * 3;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty * 3;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 11:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty * 2;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 12:
 			if (HAL_GetTick() - startTime >= brightnessDelay)
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 13:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty * 2;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 14:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty * 3;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty * 3;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 15:
 			if (HAL_GetTick() - startTime >= brightnessDelay)
 			{
-				ledArr[randomLedIdx[0]].duty = defaultDuty;
+				ledArr[randomLedIdx[0]].duty = g_defaultDuty;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 16:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty * 2;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 17:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty * 3;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty * 3;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 18:
@@ -797,25 +765,25 @@ void sparkling()
 				reassignLedIdx(randomLedIdx, 0);
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 19:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[1]].duty = defaultDuty;
+				ledArr[randomLedIdx[1]].duty = g_defaultDuty;
 
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 20:
 			if (HAL_GetTick() - startTime >= 100)
 			{
-				ledArr[randomLedIdx[2]].duty = defaultDuty * 2;
+				ledArr[randomLedIdx[2]].duty = g_defaultDuty * 2;
 
 				startTime = HAL_GetTick();
-				patternStep = 0;
+				g_patternStep = 0;
 			}
 			break;
 	}
@@ -825,14 +793,14 @@ void ledChaser()
 {
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = false;
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
 
-			gpioNotReset = false;
+			g_gpioNotReset = false;
 		}
 	}
 
@@ -841,26 +809,26 @@ void ledChaser()
 	if (HAL_GetTick() - startTime >= chaseDelay)
 	{
 		// Reset led idx once done one full cycle
-		if (patternStep >= numLeds)
+		if (g_patternStep >= g_numLeds)
 		{
-			patternStep = 0;
+			g_patternStep = 0;
 		}
 
 		// Turn off last LED from last idx
-		ledArr[patternStep].enabled = false;
+		ledArr[g_patternStep].enabled = false;
 		// Turn on middle led and leds either side of it
-		ledArr[(patternStep + 1) % numLeds].enabled = true;
-		ledArr[(patternStep + 2) % numLeds].enabled = true;
-		ledArr[(patternStep + 3) % numLeds].enabled = true;
+		ledArr[(g_patternStep + 1) % g_numLeds].enabled = true;
+		ledArr[(g_patternStep + 2) % g_numLeds].enabled = true;
+		ledArr[(g_patternStep + 3) % g_numLeds].enabled = true;
 
 		// Make middle LED brightest and leds on either side dimmer
 		// for a fading effect as they cycle
-		ledArr[(patternStep + 1) % numLeds].duty = defaultDuty;
-		ledArr[(patternStep + 2) % numLeds].duty = defaultDuty * 5;
-		ledArr[(patternStep + 3) % numLeds].duty = defaultDuty;
+		ledArr[(g_patternStep + 1) % g_numLeds].duty = g_defaultDuty;
+		ledArr[(g_patternStep + 2) % g_numLeds].duty = g_defaultDuty * 5;
+		ledArr[(g_patternStep + 3) % g_numLeds].duty = g_defaultDuty;
 
 		startTime = HAL_GetTick();
-		patternStep++;
+		g_patternStep++;
 	}
 }
 
@@ -868,43 +836,43 @@ void alternating()
 {
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = false;
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
 
-			gpioNotReset = false;
+			g_gpioNotReset = false;
 		}
 	}
 
-	switch(patternStep)
+	switch(g_patternStep)
 	{
 		case 0:
 			if (HAL_GetTick() - startTime >= 500)
 			{
-				for (uint8_t i = 0; i < numLeds; i += 2)
+				for (uint8_t i = 0; i < g_numLeds; i += 2)
 				{
 					ledArr[i].enabled = true;
-					ledArr[i].duty = defaultDuty;
+					ledArr[i].duty = g_defaultDuty;
 					ledArr[i+1].enabled = false;
-					ledArr[i+1].duty = defaultDuty;
+					ledArr[i+1].duty = g_defaultDuty;
 				}
 				startTime = HAL_GetTick();
-				patternStep++;
+				g_patternStep++;
 			}
 			break;
 		case 1:
 			if (HAL_GetTick() - startTime >= 500)
 			{
-				for (uint8_t i = 0; i < numLeds; i += 2)
+				for (uint8_t i = 0; i < g_numLeds; i += 2)
 				{
 					ledArr[i].enabled = false;
 					ledArr[i+1].enabled = true;
 				}
 				startTime = HAL_GetTick();
-				patternStep = 0;
+				g_patternStep = 0;
 			}
 			break;
 	}
@@ -914,15 +882,15 @@ void groupedLedChaser()
 {
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = false;
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
 		}
 
-		gpioNotReset = false;
+		g_gpioNotReset = false;
 	}
 
 	uint16_t groupDelay = 500;
@@ -930,29 +898,29 @@ void groupedLedChaser()
 	if (HAL_GetTick() - startTime >= groupDelay)
 	{
 		// Turn all LEDs off first
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = false;
 		}
 
 		// Turn on the current group of 3
-		uint8_t startLed = patternStep * 3;
+		uint8_t startLed = g_patternStep * 3;
 
 		for (uint8_t i = 0; i < 3; i++)
 		{
 			ledArr[startLed + i].enabled = true;
-			ledArr[startLed + i].duty = defaultDuty;
+			ledArr[startLed + i].duty = g_defaultDuty;
 		}
 
 		startTime = HAL_GetTick();
 
 		// Move to next group
-		patternStep++;
+		g_patternStep++;
 
 		// 4 groups: 1-3, 4-6, 7-9, 10-12
-		if (patternStep >= numLeds / 3)
+		if (g_patternStep >= g_numLeds / 3)
 		{
-			patternStep = 0;
+			g_patternStep = 0;
 		}
 	}
 }
@@ -961,41 +929,41 @@ void breathing()
 {
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = true;
 			ledArr[i].duty = 0;
 		}
 
-		gpioNotReset = false;
-		patternStep = 0;
+		g_gpioNotReset = false;
+		g_patternStep = 0;
 	}
 
 	uint16_t breathingDelay = 50;
 
 	if (HAL_GetTick() - startTime >= breathingDelay)
 	{
-		switch (patternStep)
+		switch (g_patternStep)
 		{
 			// Increasing brightness
 			case 0:
-				for (uint8_t i = 0; i < numLeds; i++)
+				for (uint8_t i = 0; i < g_numLeds; i++)
 				{
 					ledArr[i].duty++;
 
-					if (ledArr[i].duty >= stepRes)
+					if (ledArr[i].duty >= g_stepRes)
 					{
-						ledArr[i].duty = stepRes;
-						patternStep = 1;
+						ledArr[i].duty = g_stepRes;
+						g_patternStep = 1;
 					}
 				}
 				break;
 
 			// Decreasing brightness
 			case 1:
-				for (uint8_t i = 0; i < numLeds; i++)
+				for (uint8_t i = 0; i < g_numLeds; i++)
 				{
 					if (ledArr[i].duty > 0)
 					{
@@ -1003,7 +971,7 @@ void breathing()
 					}
 					else
 					{
-						patternStep = 0;
+						g_patternStep = 0;
 					}
 				}
 				break;
@@ -1017,16 +985,16 @@ void comet()
 {
 	static uint32_t startTime = 0;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = false;
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
 		}
 
-		gpioNotReset = false;
-		patternStep = 0;
+		g_gpioNotReset = false;
+		g_patternStep = 0;
 	}
 
 	uint16_t cometDelay = 100;
@@ -1034,37 +1002,37 @@ void comet()
 	if (HAL_GetTick() - startTime >= cometDelay)
 	{
 		// Turn all LEDs off
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = false;
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
 		}
 
 		// Current LED
-		uint8_t head = patternStep;
+		uint8_t head = g_patternStep;
 
 		// Head - brightest
 		ledArr[head].enabled = true;
-		ledArr[head].duty = defaultDuty * 5;
+		ledArr[head].duty = g_defaultDuty * 5;
 
 		// Tail - medium brightness
-		ledArr[(head + numLeds - 1) % numLeds].enabled = true;
-		ledArr[(head + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+		ledArr[(head + g_numLeds - 1) % g_numLeds].enabled = true;
+		ledArr[(head + g_numLeds - 1) % g_numLeds].duty = g_defaultDuty * 3;
 
 		// Tail - dimmer
-		ledArr[(head + numLeds - 2) % numLeds].enabled = true;
-		ledArr[(head + numLeds - 2) % numLeds].duty = defaultDuty * 2;
+		ledArr[(head + g_numLeds - 2) % g_numLeds].enabled = true;
+		ledArr[(head + g_numLeds - 2) % g_numLeds].duty = g_defaultDuty * 2;
 
 		// Tail - dimmest
-		ledArr[(head + numLeds - 3) % numLeds].enabled = true;
-		ledArr[(head + numLeds - 3) % numLeds].duty = defaultDuty;
+		ledArr[(head + g_numLeds - 3) % g_numLeds].enabled = true;
+		ledArr[(head + g_numLeds - 3) % g_numLeds].duty = g_defaultDuty;
 
 		// Move comet
-		patternStep++;
+		g_patternStep++;
 
-		if (patternStep >= numLeds)
+		if (g_patternStep >= g_numLeds)
 		{
-			patternStep = 0;
+			g_patternStep = 0;
 		}
 
 		startTime = HAL_GetTick();
@@ -1080,60 +1048,60 @@ void meteorShower()
 
 	uint16_t meteorDelay = 120;
 
-	if (gpioNotReset)
+	if (g_gpioNotReset)
 	{
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = false;
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
 		}
 
 		head1 = 0;
 		head2 = 5;
 		head3 = 9;
 
-		patternStep = 0;
-		gpioNotReset = false;
+		g_patternStep = 0;
+		g_gpioNotReset = false;
 	}
 
 	if (HAL_GetTick() - startTime >= meteorDelay)
 	{
 		// Turn everything off
-		for (uint8_t i = 0; i < numLeds; i++)
+		for (uint8_t i = 0; i < g_numLeds; i++)
 		{
 			ledArr[i].enabled = false;
-			ledArr[i].duty = defaultDuty;
+			ledArr[i].duty = g_defaultDuty;
 		}
 
 		// Meteor 1
 		ledArr[head1].enabled = true;
-		ledArr[head1].duty = stepRes;
+		ledArr[head1].duty = g_stepRes;
 
-		ledArr[(head1 + numLeds - 1) % numLeds].enabled = true;
-		ledArr[(head1 + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+		ledArr[(head1 + g_numLeds - 1) % g_numLeds].enabled = true;
+		ledArr[(head1 + g_numLeds - 1) % g_numLeds].duty = g_defaultDuty * 3;
 
-		ledArr[(head1 + numLeds - 2) % numLeds].enabled = true;
-		ledArr[(head1 + numLeds - 2) % numLeds].duty = defaultDuty;
+		ledArr[(head1 + g_numLeds - 2) % g_numLeds].enabled = true;
+		ledArr[(head1 + g_numLeds - 2) % g_numLeds].duty = g_defaultDuty;
 
 		// Meteor 2
 		ledArr[head2].enabled = true;
-		ledArr[head2].duty = stepRes;
+		ledArr[head2].duty = g_stepRes;
 
-		ledArr[(head2 + numLeds - 1) % numLeds].enabled = true;
-		ledArr[(head2 + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+		ledArr[(head2 + g_numLeds - 1) % g_numLeds].enabled = true;
+		ledArr[(head2 + g_numLeds - 1) % g_numLeds].duty = g_defaultDuty * 3;
 
-		ledArr[(head2 + numLeds - 2) % numLeds].enabled = true;
-		ledArr[(head2 + numLeds - 2) % numLeds].duty = defaultDuty;
+		ledArr[(head2 + g_numLeds - 2) % g_numLeds].enabled = true;
+		ledArr[(head2 + g_numLeds - 2) % g_numLeds].duty = g_defaultDuty;
 
 		// Meteor 3
 		ledArr[head3].enabled = true;
-		ledArr[head3].duty = stepRes;
+		ledArr[head3].duty = g_stepRes;
 
-		ledArr[(head3 + numLeds - 1) % numLeds].enabled = true;
-		ledArr[(head3 + numLeds - 1) % numLeds].duty = defaultDuty * 3;
+		ledArr[(head3 + g_numLeds - 1) % g_numLeds].enabled = true;
+		ledArr[(head3 + g_numLeds - 1) % g_numLeds].duty = g_defaultDuty * 3;
 
-		ledArr[(head3 + numLeds - 2) % numLeds].enabled = true;
-		ledArr[(head3 + numLeds - 2) % numLeds].duty = defaultDuty;
+		ledArr[(head3 + g_numLeds - 2) % g_numLeds].enabled = true;
+		ledArr[(head3 + g_numLeds - 2) % g_numLeds].duty = g_defaultDuty;
 
 		// Move meteors
 		head1++;
@@ -1141,13 +1109,13 @@ void meteorShower()
 		head3++;
 
 		// Wrap around
-		if (head1 >= numLeds)
+		if (head1 >= g_numLeds)
 			head1 = 0;
 
-		if (head2 >= numLeds)
+		if (head2 >= g_numLeds)
 			head2 = 0;
 
-		if (head3 >= numLeds)
+		if (head3 >= g_numLeds)
 			head3 = 0;
 
 		startTime = HAL_GetTick();
@@ -1163,7 +1131,7 @@ void patternCycle()
 
 	if (HAL_GetTick() - startTime >= patternDelay)
 	{
-		// Move to next pattern
+		// Move to next g_pattern
 		currentPattern++;
 
 		if (currentPattern >= 7)
@@ -1171,18 +1139,18 @@ void patternCycle()
 			currentPattern = 0;
 		}
 
-		// Reset pattern state
-		patternStep = 0;
-		gpioNotReset = true;
+		// Reset g_pattern state
+		g_patternStep = 0;
+		g_gpioNotReset = true;
 
-		// Prevent the individual pattern from being selected
-		// through the global pattern variable
-		pattern = 7;
+		// Prevent the individual g_pattern from being selected
+		// through the global g_pattern variable
+		g_pattern = 7;
 
 		startTime = HAL_GetTick();
 	}
 
-	// Run current pattern
+	// Run current g_pattern
 	switch (currentPattern)
 	{
 		case 0:
@@ -1237,12 +1205,12 @@ void pollButtons()
         newPattern |= (1 << 2);
     }
 
-    // Only reset the pattern when the selected pattern changes
-    if (newPattern != pattern)
+    // Only reset the g_pattern when the selected pattern changes
+    if (newPattern != g_pattern)
     {
-        pattern = newPattern;
-        patternStep = 0;
-        gpioNotReset = true;
+        g_pattern = newPattern;
+        g_patternStep = 0;
+        g_gpioNotReset = true;
     }
 }
 
